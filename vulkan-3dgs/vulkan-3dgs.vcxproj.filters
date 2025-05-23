@@ -32,5 +32,8 @@
     <ClInclude Include="headers\VulkanContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="headers\utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

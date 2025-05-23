@@ -24,6 +24,7 @@
     <ClCompile Include="src\Drivers\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="headers\utils.h" />
     <ClInclude Include="headers\VulkanContext.h" />
     <ClInclude Include="headers\Window.h" />
   </ItemGroup>

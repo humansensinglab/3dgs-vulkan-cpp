@@ -1,7 +1,6 @@
 #pragma once
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include "utils.h"
 #include <iostream>
 #include <vector>
 
@@ -25,6 +24,8 @@ private:
   GLFWwindow *_vcxWindow;
   VkInstance _vcxInstance;
 
+  VkSurfaceKHR _vcxSurface;
+
   struct {
     VkPhysicalDevice physicalDevice;
     VkDevice logicalDevice;
@@ -32,12 +33,17 @@ private:
 
   VkQueue _vcxGraphicsQueue;
   VkQueue _vcxPresentationQueue;
-  VkSurfaceKHR _vcxSurface;
+
+  // get Functions
+  void GetPhysicalDevice();
+  QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device);
 
   // create Functions
   void CreateInstance();
+  void CreateSurface();
 
   // support
   bool
   CheckInstanceExtensionSupport(std::vector<const char *> *checkExtensions);
+  bool CheckDeviceSuitable(VkPhysicalDevice device);
 };
