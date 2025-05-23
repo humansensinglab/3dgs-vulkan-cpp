@@ -1,13 +1,13 @@
+#include "VulkanContext.h"
 #include "Window.h"
 
 int main() {
   // Load PCloud
   WindowManager windowManager("Vulkan 3DGS API");
   windowManager.InitWindow();
-
-  /*if (renderer.init(windowManager.getWindow()) == EXIT_FAILURE) {
-    return EXIT_FAILURE;
-  }*/
+  VulkanContext vkContext(windowManager.getWindow());
+  vkContext.InitContext();
+  // Check if EXIT_FAILURE
 
   while (windowManager.IsActive()) {
     glfwPollEvents();

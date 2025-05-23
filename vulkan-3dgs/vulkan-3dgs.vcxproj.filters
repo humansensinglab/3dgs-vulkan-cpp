@@ -21,9 +21,15 @@
     <ClCompile Include="src\Drivers\Window.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Drivers\VulkanContext.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="headers\Window.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="headers\VulkanContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
