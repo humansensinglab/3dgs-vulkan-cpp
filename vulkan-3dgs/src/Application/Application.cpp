@@ -18,7 +18,7 @@ void initWindow(std::string wName = "Test", const int w = 800,
 }
 
 int main() {
-  initWindow();
+  initWindow("3dgs Vulkan API");
 
   /*if (renderer.init(window) == EXIT_FAILURE) {
     return EXIT_FAILURE;
