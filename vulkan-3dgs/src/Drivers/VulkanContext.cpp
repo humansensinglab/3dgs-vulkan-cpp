@@ -79,7 +79,7 @@ void VulkanContext::CreateInstance() {
 
   // create Instance
   VkResult res = vkCreateInstance(&createInfo, nullptr, &_vcxInstance);
-  if (res != EXIT_SUCCESS) {
+  if (res != VK_SUCCESS) {
     throw std::runtime_error("Failed to Create Instance");
   }
 }
@@ -112,7 +112,7 @@ void VulkanContext::GetPhysicalDevice() {
       break;
     }
   }
-  if (_vcxMainDevice.physicalDevice == nullptr) {
+  if (_vcxMainDevice.physicalDevice == VK_NULL_HANDLE) {
     throw std::runtime_error("No suitable physical Device");
   }
 }
@@ -193,5 +193,6 @@ bool VulkanContext::CheckDeviceSuitable(VkPhysicalDevice device) {
   // }
 
   // return ind.isValid() && deviceExtensionSupport && swapChainValid;
-  return indices.isValid() && isDiscreteGPU;
+  // for now
+  return indices.isValid() && (isDiscreteGPU || true);
 }
