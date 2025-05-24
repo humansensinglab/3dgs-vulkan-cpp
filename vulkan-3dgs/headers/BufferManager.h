@@ -21,6 +21,11 @@ public:
                                VkDeviceSize size);
   void CleanupAllBuffers(VkDevice device);
   void DestroyBuffer(VkDevice device, VkBuffer buffer);
+  void copyBuffer(VkDevice device, VkDeviceSize deviceSize, VkBuffer srcBuffer,
+                  VkBuffer dstBuffer, VkCommandPool transferPool,
+                  VkQueue transferQueue);
+
+  VkDeviceMemory GetBufferMemory(VkBuffer buffer);
 
 private:
   void CreateBufferInternal(VkDevice device, VkPhysicalDevice physicalDevice,

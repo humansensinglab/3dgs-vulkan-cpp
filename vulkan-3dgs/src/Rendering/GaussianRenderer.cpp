@@ -23,12 +23,19 @@ void GaussianRenderer::LoadGaussianData(
 }
 
 void GaussianRenderer::CreateGaussianBuffers() {
-  std::cout << "\n--- Creating Gaussian GPU Buffers ---" << std::endl;
+  std::cout << "\n--- Creating Gaussian GPU Buffers and uploading to GPU "
+               "thorugh staging buffers ---"
+            << std::endl;
 
-  CreateBuffer<glm::vec3>(_xyzBuffer, "_xyz");
-  CreateBuffer<glm::vec3>(_scaleBuffer, "_scale");
-  CreateBuffer<glm::vec4>(_rotationBuffer, "_rot");
-  CreateBuffer<float>(_opacityBuffer, "_opacity");
-  CreateBuffer<float>(_shBuffer, "_SH",
-                      _gaussianData->GetSHCoefficientsPerChannel() + 3);
+  CreateAndUploadBuffer<glm::vec3>(_xyzBuffer,
+                                   _gaussianData->GetPositionsData(), "_xyz");
+  CreateAndUploadBuffer<glm::vec3>(_scaleBuffer, _gaussianData->GetScalesData(),
+                                   "_scale");
+  CreateAndUploadBuffer<glm::vec4>(_rotationBuffer,
+                                   _gaussianData->GetRotationsData(), "_rot");
+  CreateAndUploadBuffer<float>(_opacityBuffer,
+                               _gaussianData->GetOpacitiesData(), "_opacity");
+  CreateAndUploadBuffer<float>(
+      _shBuffer, _gaussianData->GetSHData(), "_SH",
+      3 * (_gaussianData->GetSHCoefficientsPerChannel()));
 }

@@ -35,20 +35,41 @@ private:
 
   void CreateGaussianBuffers();
   template <typename T>
-  void CreateBuffer(VkBuffer &buffer, std::string type, int offset = 1);
+  void CreateAndUploadBuffer(VkBuffer &buffer, const void *data,
+                             std::string type, int offset = 1);
 };
 
 template <typename T>
-inline void GaussianRenderer::CreateBuffer(VkBuffer &buffer, std::string type,
-                                           int offset) {
+inline void
+GaussianRenderer::CreateAndUploadBuffer(VkBuffer &buffer, const void *data,
+                                        std::string type, int offset) {
+
+  VkDevice device = _vulkanContext.GetLogicalDevice();
+  VkPhysicalDevice physicalDevice = _vulkanContext.GetPhysicalDevice();
 
   VkDeviceSize bufferSize = _gaussianData->GetCount() * sizeof(T) * offset;
   std::cout << " Creating " << type << " buffer : " << bufferSize << " bytes "
             << std::endl;
 
-  buffer = _bufferManager.CreateStorageBuffer(
-      _vulkanContext.GetLogicalDevice(), _vulkanContext.GetPhysicalDevice(),
-      bufferSize);
+  VkBuffer stagingBuffer = _bufferManager.CreateBuffer(
+      device, physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+  void *mappedMem;
+  VkDeviceMemory deviceMem = _bufferManager.GetBufferMemory(stagingBuffer);
+  vkMapMemory(device, deviceMem, 0, bufferSize, 0, &mappedMem);
+  memcpy(mappedMem, data, static_cast<size_t>(bufferSize));
+  vkUnmapMemory(device, deviceMem);
+
+  buffer =
+      _bufferManager.CreateStorageBuffer(device, physicalDevice, bufferSize);
+
+  _bufferManager.copyBuffer(device, bufferSize, stagingBuffer, buffer,
+                            _vulkanContext.GetCommandPool(),
+                            _vulkanContext.GetGraphicsQueue());
+
+  _bufferManager.DestroyBuffer(device, stagingBuffer);
 
   std::cout << " buffer created!" << std::endl;
 }

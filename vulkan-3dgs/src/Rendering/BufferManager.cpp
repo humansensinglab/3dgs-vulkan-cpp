@@ -80,6 +80,55 @@ uint32_t BufferManager::FindMemoryType(VkPhysicalDevice physicalDevice,
   throw std::runtime_error("Failed to find suitable memory type!");
 }
 
+void BufferManager::copyBuffer(VkDevice device, VkDeviceSize deviceSize,
+                               VkBuffer srcBuffer, VkBuffer dstBuffer,
+                               VkCommandPool commandPool,
+                               VkQueue commandQueue) {
+
+  VkCommandBuffer commandBuffer;
+  VkCommandBufferAllocateInfo allocateInfo = {};
+  allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  allocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  allocateInfo.commandPool = commandPool;
+  allocateInfo.commandBufferCount = 1;
+
+  vkAllocateCommandBuffers(device, &allocateInfo, &commandBuffer);
+
+  VkCommandBufferBeginInfo beginInfo = {};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+  VkBufferCopy copy = {};
+  copy.dstOffset = 0;
+  copy.srcOffset = 0;
+  copy.size = deviceSize;
+
+  vkBeginCommandBuffer(commandBuffer, &beginInfo);
+  vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copy);
+  vkEndCommandBuffer(commandBuffer);
+
+  // queue submission
+
+  VkSubmitInfo submitInfo = {};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &commandBuffer;
+
+  vkQueueSubmit(commandQueue, 1, &submitInfo, VK_NULL_HANDLE);
+  vkQueueWaitIdle(commandQueue);
+
+  vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+}
+
+VkDeviceMemory BufferManager::GetBufferMemory(VkBuffer buffer) {
+  for (const auto &bufferInfo : _buffers) {
+    if (bufferInfo.buffer == buffer) {
+      return bufferInfo.memory;
+    }
+  }
+  throw std::runtime_error("Buffer memory not found!");
+}
+
 void BufferManager::DestroyBuffer(VkDevice device, VkBuffer buffer) {
 
   for (auto it = _buffers.begin(); it != _buffers.end(); ++it) {

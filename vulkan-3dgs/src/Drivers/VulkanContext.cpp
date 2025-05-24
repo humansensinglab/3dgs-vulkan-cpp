@@ -9,6 +9,7 @@ int VulkanContext::InitContext() {
     GetPhysicalDeviceInternal();
     CreateLogicalDevice();
     CreateSwapChain();
+    CreateCommandPool();
 
     std::cout << "\nVULKAN CONTEXT INITIALIZED\n" << std::endl;
 
@@ -21,6 +22,7 @@ int VulkanContext::InitContext() {
 
 void VulkanContext::CleanUp() {
 
+  vkDestroyCommandPool(_vcxMainDevice.logicalDevice, _vcxCommandPool, nullptr);
   for (const auto &image : _vcxImages) {
     vkDestroyImageView(_vcxMainDevice.logicalDevice, image.imageView, nullptr);
   }
@@ -234,6 +236,19 @@ void VulkanContext::CreateSwapChain() {
   }
 
   std::cout << "---VkSwapchain created Successfully---" << std::endl;
+}
+
+void VulkanContext::CreateCommandPool() {
+  QueueFamilyIndices ind = GetQueueFamilies(_vcxMainDevice.physicalDevice);
+  VkCommandPoolCreateInfo poolInfo = {};
+  poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+  poolInfo.queueFamilyIndex = ind.graphicsFamily;
+
+  if (vkCreateCommandPool(_vcxMainDevice.logicalDevice, &poolInfo, nullptr,
+                          &_vcxCommandPool) != VK_SUCCESS)
+    throw std::runtime_error("Fail to create Command Pool");
+
+  std::cout << "---Command Pool  created Successfully---" << std::endl;
 }
 
 void VulkanContext::GetPhysicalDeviceInternal() {

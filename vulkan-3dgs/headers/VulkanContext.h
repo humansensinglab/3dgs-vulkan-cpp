@@ -30,6 +30,8 @@ public:
   const VkExtent2D &GetSwapchainExtent() const { return _vcxSwapChainExtent2D; }
   std::vector<SwapChainImage> &GetSwapchainImages() { return _vcxImages; }
 
+  VkCommandPool GetCommandPool() const { return _vcxCommandPool; }
+
   ~VulkanContext();
 
 private:
@@ -52,6 +54,8 @@ private:
   VkFormat _vcxSwapChainFormat;
   VkExtent2D _vcxSwapChainExtent2D;
 
+  VkCommandPool _vcxCommandPool;
+
   // get Functions
   void GetPhysicalDeviceInternal();
   QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device);
@@ -62,6 +66,7 @@ private:
   void CreateSurface();
   void CreateLogicalDevice();
   void CreateSwapChain();
+  void CreateCommandPool();
 
   // support
   bool
