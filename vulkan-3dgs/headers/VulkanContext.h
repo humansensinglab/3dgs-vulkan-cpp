@@ -57,6 +57,7 @@ private:
   bool CheckDeviceExtensionSupport(
       VkPhysicalDevice device); // swapchain compatibility is checked on
                                 // physical device level
+  bool CheckValidationLayerSupport();
 
   // choose for Swapchain
   VkSurfaceFormatKHR
@@ -69,4 +70,34 @@ private:
   VkImageView CreateImageView(VkImage image, VkFormat format,
                               VkImageAspectFlags aspectFlags);
   VkShaderModule CreateShaderModule(const std::vector<char> &code);
+
+  // Debugging::
+
+  VkDebugUtilsMessengerEXT _debugMessenger;
+  void SetupDebugMessenger();
+  void PopulateDebugMessengerCreateInfo(
+      VkDebugUtilsMessengerCreateInfoEXT &createInfo);
+
+  static VKAPI_ATTR VkBool32 VKAPI_CALL
+  debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+                VkDebugUtilsMessageTypeFlagsEXT messageType,
+                const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+                void *pUserData) {
+
+    std::cerr << "Validation layer: " << pCallbackData->pMessage << std::endl;
+
+    return VK_FALSE; // Return false to let Vulkan continue
+  }
+
+  // Function to create the debug messenger
+  VkResult CreateDebugUtilsMessengerEXT(
+      VkInstance instance,
+      const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
+      const VkAllocationCallbacks *pAllocator,
+      VkDebugUtilsMessengerEXT *pDebugMessenger);
+
+  // Function to destroy the debug messenger
+  void DestroyDebugUtilsMessengerEXT(VkInstance instance,
+                                     VkDebugUtilsMessengerEXT debugMessenger,
+                                     const VkAllocationCallbacks *pAllocator);
 };
