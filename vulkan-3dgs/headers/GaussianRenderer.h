@@ -1,6 +1,7 @@
 #pragma once
 
 #include "BufferManager.h"
+#include "ComputePipeline.h"
 #include "GaussianBase.h"
 #include "VulkanContext.h"
 
@@ -8,8 +9,10 @@ class GaussianRenderer {
 
 public:
   GaussianRenderer(VulkanContext &vulkanContext)
-      : _vulkanContext(vulkanContext), _bufferManager() {
+      : _vulkanContext(vulkanContext), _bufferManager(),
+        _computePipeline(vulkanContext) {
     std::cout << "GaussianRenderer created" << std::endl;
+    _computePipeline.Initialize();
   };
 
   ~GaussianRenderer();
@@ -26,6 +29,7 @@ private:
   VulkanContext &_vulkanContext;
   BufferManager _bufferManager;
   std::unique_ptr<GaussianBase> _gaussianData;
+  ComputePipeline _computePipeline;
 
   VkBuffer _xyzBuffer = VK_NULL_HANDLE;
   VkBuffer _scaleBuffer = VK_NULL_HANDLE;
