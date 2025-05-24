@@ -54,6 +54,9 @@ private:
   bool
   CheckInstanceExtensionSupport(std::vector<const char *> *checkExtensions);
   bool CheckDeviceSuitable(VkPhysicalDevice device);
+  bool CheckDeviceExtensionSupport(
+      VkPhysicalDevice device); // swapchain compatibility is checked on
+                                // physical device level
 
   // choose for Swapchain
   VkSurfaceFormatKHR

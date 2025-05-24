@@ -346,19 +346,44 @@ bool VulkanContext::CheckDeviceSuitable(VkPhysicalDevice device) {
   QueueFamilyIndices indices = GetQueueFamilies(device);
 
   //// swapchain extension
-  // bool deviceExtensionSupport = checkDeviceExtensionSupport(device);
+  bool deviceExtensionSupport = CheckDeviceExtensionSupport(device);
 
   //// see if device swapchain/surface has format/presentation modes.
-  // bool swapChainValid = false;
-  // if (deviceExtensionSupport) {
-  //   SwapChainDetails swapChainDetails = getSwapChainDetails(device);
-  //   swapChainValid = swapChainDetails.imageFormat.size() > 0 &&
-  //                    swapChainDetails.presentationsMode.size() > 0;
-  // }
+  bool swapChainValid = false;
+  if (deviceExtensionSupport) {
+    SwapChainDetails swapChainDetails = GetSwapChainDetails(device);
+    swapChainValid = swapChainDetails.imageFormat.size() > 0 &&
+                     swapChainDetails.presentationsMode.size() > 0;
+  }
 
-  // return ind.isValid() && deviceExtensionSupport && swapChainValid;
-  // for now
-  return indices.isValid() && (isDiscreteGPU || true);
+  return indices.isValid() && deviceExtensionSupport && swapChainValid;
+}
+
+bool VulkanContext::CheckDeviceExtensionSupport(VkPhysicalDevice device) {
+  uint32_t extensionCount = 0;
+  vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
+                                       nullptr);
+
+  if (extensionCount == 0)
+    return false;
+
+  std::vector<VkExtensionProperties> extensionProperties(extensionCount);
+  vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
+                                       extensionProperties.data());
+
+  for (const auto &neededExtensions : deviceExtensions) {
+    bool hasExtension = false;
+    for (const auto &extension : extensionProperties) {
+      if (strcmp(neededExtensions, extension.extensionName) == 0) {
+        hasExtension = true;
+        break;
+      }
+    }
+    if (!hasExtension)
+      return false;
+  }
+
+  return true;
 }
 
 VkSurfaceFormatKHR VulkanContext::ChooseBestFormatSurface(
