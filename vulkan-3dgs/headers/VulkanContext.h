@@ -17,6 +17,19 @@ public:
 
   void CleanUp();
 
+  VkDevice GetLogicalDevice() const { return _vcxMainDevice.logicalDevice; }
+  VkPhysicalDevice GetPhysicalDevice() const {
+    return _vcxMainDevice.physicalDevice;
+  }
+
+  VkQueue GetGraphicsQueue() const { return _vcxGraphicsQueue; }
+  VkQueue GetPresentationQueue() const { return _vcxPresentationQueue; }
+
+  VkSwapchainKHR GetSwapchain() const { return _vcxSwapchain; }
+  VkFormat GetSwapchainFormat() const { return _vcxSwapChainFormat; }
+  const VkExtent2D &GetSwapchainExtent() const { return _vcxSwapChainExtent2D; }
+  std::vector<SwapChainImage> &GetSwapchainImages() { return _vcxImages; }
+
   ~VulkanContext();
 
 private:
@@ -40,7 +53,7 @@ private:
   VkExtent2D _vcxSwapChainExtent2D;
 
   // get Functions
-  void GetPhysicalDevice();
+  void GetPhysicalDeviceInternal();
   QueueFamilyIndices GetQueueFamilies(VkPhysicalDevice device);
   SwapChainDetails GetSwapChainDetails(VkPhysicalDevice device);
 

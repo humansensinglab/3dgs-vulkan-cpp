@@ -2,13 +2,15 @@
 
 int VulkanContext::InitContext() {
   try {
-
+    std::cout << "\nVULKAN CONTEXT:\n" << std::endl;
     CreateInstance();
     SetupDebugMessenger();
     CreateSurface();
-    GetPhysicalDevice();
+    GetPhysicalDeviceInternal();
     CreateLogicalDevice();
     CreateSwapChain();
+
+    std::cout << "\nVULKAN CONTEXT INITIALIZED\n" << std::endl;
 
   } catch (const std::runtime_error &e) {
     printf("ERROR: %s\n", e.what());
@@ -88,6 +90,7 @@ void VulkanContext::CreateInstance() {
   if (res != VK_SUCCESS) {
     throw std::runtime_error("Failed to Create Instance");
   }
+  std::cout << "---VkInstance created Successfully---" << std::endl;
 }
 
 void VulkanContext::CreateSurface() {
@@ -96,6 +99,7 @@ void VulkanContext::CreateSurface() {
   if (result != VK_SUCCESS) {
     throw std::runtime_error("Failed creating surface");
   }
+  std::cout << "---VkSurface created Successfully---" << std::endl;
 }
 
 void VulkanContext::CreateLogicalDevice() {
@@ -139,6 +143,8 @@ void VulkanContext::CreateLogicalDevice() {
                    &_vcxGraphicsQueue);
   vkGetDeviceQueue(_vcxMainDevice.logicalDevice, ind.presentationFamily, 0,
                    &_vcxPresentationQueue);
+
+  std::cout << "---VkLogicalDevice created Successfully---" << std::endl;
 }
 
 void VulkanContext::CreateSwapChain() {
@@ -171,7 +177,8 @@ void VulkanContext::CreateSwapChain() {
   // VK_IMAGE_USAGE_STORAGE_BIT
   createInfo.imageArrayLayers = 1; // number of layers per each array
   createInfo.imageUsage =
-      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // normally in swapchain always color
+      VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+  // normally in swapchain always color
   createInfo.preTransform = swChainDetails.surfaceCapabilities.currentTransform;
   createInfo.compositeAlpha =
       VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Handle blending images with more
@@ -225,9 +232,11 @@ void VulkanContext::CreateSwapChain() {
 
     _vcxImages.push_back(swImage);
   }
+
+  std::cout << "---VkSwapchain created Successfully---" << std::endl;
 }
 
-void VulkanContext::GetPhysicalDevice() {
+void VulkanContext::GetPhysicalDeviceInternal() {
 
   uint32_t deviceCount = 0;
   if (vkEnumeratePhysicalDevices(_vcxInstance, &deviceCount, nullptr) !=
@@ -250,6 +259,7 @@ void VulkanContext::GetPhysicalDevice() {
   if (_vcxMainDevice.physicalDevice == VK_NULL_HANDLE) {
     throw std::runtime_error("No suitable physical Device");
   }
+  std::cout << "---VkPhysicalDevice found Successfully---" << std::endl;
 }
 
 QueueFamilyIndices VulkanContext::GetQueueFamilies(VkPhysicalDevice device) {
