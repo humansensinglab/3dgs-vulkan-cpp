@@ -1,11 +1,9 @@
 #pragma once
 
-#define GLFW_INCLUDE_VULKAN
 #include "VulkanContext.h"
-#include <GLFW/glfw3.h>
+#include "utils.h"
 #include <iostream>
 #include <map>
-#include <vector>
 
 constexpr int frames_in_flight = 2;
 
@@ -14,6 +12,7 @@ struct DescriptorBinding {
   VkDescriptorType type;
   VkShaderStageFlags stageFlags;
   uint32_t count = 1;
+  std::string name = "";
 };
 
 enum class PipelineType {
@@ -28,7 +27,7 @@ public:
   ComputePipeline(VulkanContext &vkContext) : _vkContext(vkContext){};
   ~ComputePipeline() { CleanUp(); }
 
-  void Initialize();
+  void Initialize(GaussianBuffers gaussianBuffer);
   void RenderFrame();
   void CleanUp();
 
@@ -58,14 +57,23 @@ private:
 
   void TransitionImage(VkCommandBuffer commandBuffer, VkImageLayout in,
                        VkImageLayout out, VkImage image, VkAccessFlags src,
-                       VkAccessFlags dst);
+                       VkAccessFlags dst, VkPipelineStageFlagBits srcStage,
+                       VkPipelineStageFlagBits dstStage);
   void UpdateAllDescriptorSets(const PipelineType pType);
   void RecordAllCommandBuffers();
+  void BindImageToDescriptor(const PipelineType pType, uint32_t i,
+                             VkImageView view);
 
+  void BindBufferToDescriptor(const PipelineType pType, uint32_t bindingIndex,
+                              uint32_t i, VkBuffer buffer);
+  VkBuffer GetBufferByName(const std::string &bufferName);
   // repeated layouts:: we can share them. TODO
   std::map<PipelineType, std::vector<DescriptorBinding>> SHADER_LAYOUTS = {
       {PipelineType::DEBUG_RED_FILL,
-       {{0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1}}},
+       {{0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         ""},
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "xyz"}}},
 
       {PipelineType::CULLING,
        {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1},
@@ -82,4 +90,6 @@ private:
         {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1},
         {2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT,
          1}}}};
+
+  GaussianBuffers _gaussianBuffers;
 };

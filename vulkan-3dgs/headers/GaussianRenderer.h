@@ -3,7 +3,6 @@
 #include "BufferManager.h"
 #include "ComputePipeline.h"
 #include "GaussianBase.h"
-#include "VulkanContext.h"
 
 class GaussianRenderer {
 
@@ -12,7 +11,6 @@ public:
       : _vulkanContext(vulkanContext), _bufferManager(),
         _computePipeline(vulkanContext) {
     std::cout << "GaussianRenderer created" << std::endl;
-    _computePipeline.Initialize();
   };
 
   ~GaussianRenderer();

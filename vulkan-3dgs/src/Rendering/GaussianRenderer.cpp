@@ -19,6 +19,9 @@ void GaussianRenderer::LoadGaussianData(
 
   CreateGaussianBuffers();
 
+  _computePipeline.Initialize(
+      {_xyzBuffer, _scaleBuffer, _rotationBuffer, _opacityBuffer, _shBuffer});
+
   std::cout << " Gaussian data loaded and GPU resources created !" << std::endl;
 }
 

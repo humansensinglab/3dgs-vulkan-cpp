@@ -6,6 +6,14 @@
 #include <set>
 #include <vector>
 
+struct GaussianBuffers {
+  VkBuffer xyz;
+  VkBuffer scales;
+  VkBuffer rotations;
+  VkBuffer opacity;
+  VkBuffer sh;
+};
+
 const std::vector<const char *> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 

@@ -1,7 +1,9 @@
 #include "ComputePipeline.h"
 
-void ComputePipeline::Initialize() {
+void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   std::cout << "\n === Compute Pipeline Initalization === \n" << std::endl;
+
+  _gaussianBuffers = gaussianBuffer;
   CreateCommandBuffers();
   CreateDescriptorSetLayout(PipelineType::DEBUG_RED_FILL);
   CreateDescriptorPool();
@@ -233,7 +235,8 @@ void ComputePipeline::RecordCommandBufferForImage(uint32_t imageIndex) {
   TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED,
                   VK_IMAGE_LAYOUT_GENERAL,
                   _vkContext.GetSwapchainImages()[imageIndex].image, 0,
-                  VK_ACCESS_SHADER_WRITE_BIT);
+                  VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
   // Bind pipeline
   vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -255,7 +258,9 @@ void ComputePipeline::RecordCommandBufferForImage(uint32_t imageIndex) {
   TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_GENERAL,
                   VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                   _vkContext.GetSwapchainImages()[imageIndex].image,
-                  VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT);
+                  VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
+                  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                  VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
   // End recording
   if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
@@ -284,7 +289,9 @@ ComputePipeline::CreateShaderModule(const std::vector<char> &code) {
 void ComputePipeline::TransitionImage(VkCommandBuffer commandBuffer,
                                       VkImageLayout in, VkImageLayout out,
                                       VkImage image, VkAccessFlags src,
-                                      VkAccessFlags dst) {
+                                      VkAccessFlags dst,
+                                      VkPipelineStageFlagBits srcStage,
+                                      VkPipelineStageFlagBits dstStage) {
 
   // Transition swapchain image to GENERAL layout for compute write
   VkImageMemoryBarrier barrier = {};
@@ -306,10 +313,8 @@ void ComputePipeline::TransitionImage(VkCommandBuffer commandBuffer,
   barrier.dstAccessMask = dst;                 // Compute shader will write
 
   vkCmdPipelineBarrier(
-      commandBuffer,                        // Command buffer to record into
-      VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,    // Before everything else
-      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // Before compute shader starts
-      0, 0, nullptr, 0, nullptr, 1,
+      commandBuffer, // Command buffer to record into
+      srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1,
       &barrier); // 1 image barrier, no memory/buffer barriers //
 }
 
@@ -373,10 +378,12 @@ void ComputePipeline::RenderFrame() {
 void ComputePipeline::CreateDescriptorPool() {
 
   std::map<VkDescriptorType, uint32_t> typeCounts;
+  uint32_t swapchainImageCount =
+      static_cast<uint32_t>(_vkContext.GetSwapchainImages().size());
 
   for (const auto &[pipelineType, bindings] : SHADER_LAYOUTS) {
     for (const auto &binding : bindings) {
-      typeCounts[binding.type] += binding.count;
+      typeCounts[binding.type] += binding.count * swapchainImageCount;
     }
   }
 
@@ -392,8 +399,7 @@ void ComputePipeline::CreateDescriptorPool() {
   poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
   poolInfo.pPoolSizes = poolSizes.data();
-  uint32_t swapchainImageCount =
-      static_cast<uint32_t>(_vkContext.GetSwapchainImages().size());
+
   poolInfo.maxSets =
       static_cast<uint32_t>(SHADER_LAYOUTS.size()) * swapchainImageCount;
 
@@ -412,30 +418,33 @@ void ComputePipeline::UpdateAllDescriptorSets(const PipelineType pType) {
 
   auto &swapchainImages = _vkContext.GetSwapchainImages();
 
-  // Update each descriptor set with its corresponding swapchain image
-  for (uint32_t i = 0; i < swapchainImages.size(); i++) {
-    VkDescriptorImageInfo imageInfo = {};
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    imageInfo.imageView =
-        swapchainImages[i].imageView; // Specific image for this set
-    imageInfo.sampler = VK_NULL_HANDLE;
-
-    VkWriteDescriptorSet descriptorWrite = {};
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.dstSet =
-        _descriptorSets[pType][i]; // Specific descriptor set
-    descriptorWrite.dstBinding = 0;
-    descriptorWrite.dstArrayElement = 0;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.pImageInfo = &imageInfo;
-
-    vkUpdateDescriptorSets(_vkContext.GetLogicalDevice(), 1, &descriptorWrite,
-                           0, nullptr);
-
-    std::cout << "Descriptor set " << i << "  Swapchain image " << i
-              << std::endl;
+  for (const auto &descriptor : SHADER_LAYOUTS[pType]) {
+    for (uint32_t i = 0; i < swapchainImages.size(); i++) {
+      if (descriptor.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
+        BindImageToDescriptor(pType, i, swapchainImages[i].imageView);
+      else if (descriptor.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+        std::cout << "Not implemented yet" << std::endl;
+      else {
+        BindBufferToDescriptor(pType, descriptor.binding, i,
+                               GetBufferByName(descriptor.name));
+      }
+    }
   }
+}
+
+VkBuffer ComputePipeline::GetBufferByName(const std::string &bufferName) {
+  if (bufferName == "xyz")
+    return _gaussianBuffers.xyz;
+  if (bufferName == "scales")
+    return _gaussianBuffers.scales;
+  if (bufferName == "rotations")
+    return _gaussianBuffers.rotations;
+  if (bufferName == "opacity")
+    return _gaussianBuffers.opacity;
+  if (bufferName == "sh")
+    return _gaussianBuffers.sh;
+
+  throw std::runtime_error("Unknown buffer name: " + bufferName);
 }
 
 void ComputePipeline::RecordAllCommandBuffers() {
@@ -450,4 +459,49 @@ void ComputePipeline::RecordAllCommandBuffers() {
 
   std::cout << " All " << swapchainImageCount
             << " command buffers pre-recorded!" << std::endl;
+}
+
+void ComputePipeline::BindImageToDescriptor(const PipelineType pType,
+                                            uint32_t i, VkImageView view) {
+  VkDescriptorImageInfo imageInfo = {};
+  imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+  imageInfo.imageView = view;
+  imageInfo.sampler = VK_NULL_HANDLE;
+
+  VkWriteDescriptorSet descriptorWrite = {};
+  descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  descriptorWrite.dstSet = _descriptorSets[pType][i]; // Specific descriptor set
+  descriptorWrite.dstBinding = 0;
+  descriptorWrite.dstArrayElement = 0;
+  descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+  descriptorWrite.descriptorCount = 1;
+  descriptorWrite.pImageInfo = &imageInfo;
+
+  vkUpdateDescriptorSets(_vkContext.GetLogicalDevice(), 1, &descriptorWrite, 0,
+                         nullptr);
+
+  std::cout << "Descriptor set " << i << "  Swapchain image " << i << std::endl;
+}
+
+void ComputePipeline::BindBufferToDescriptor(const PipelineType pType,
+                                             uint32_t bindingIndex, uint32_t i,
+                                             VkBuffer buffer) {
+  VkDescriptorBufferInfo bufferInfo = {};
+  bufferInfo.buffer = buffer;
+  bufferInfo.offset = 0;
+  bufferInfo.range = VK_WHOLE_SIZE;
+
+  VkWriteDescriptorSet descriptorWrite = {};
+  descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  descriptorWrite.dstSet = _descriptorSets[pType][i]; // Specific descriptor set
+  descriptorWrite.dstBinding = bindingIndex;
+  descriptorWrite.dstArrayElement = 0;
+  descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  descriptorWrite.descriptorCount = 1;
+  descriptorWrite.pBufferInfo = &bufferInfo;
+
+  vkUpdateDescriptorSets(_vkContext.GetLogicalDevice(), 1, &descriptorWrite, 0,
+                         nullptr);
+
+  std::cout << "Descriptor set " << i << "  Buffer " << i << std::endl;
 }
