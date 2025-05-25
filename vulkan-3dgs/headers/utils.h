@@ -2,6 +2,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <fstream>
 #include <set>
 #include <vector>
 
@@ -27,3 +28,20 @@ struct SwapChainImage {
   VkImage image;
   VkImageView imageView;
 };
+
+static std::vector<char> ReadFile(const std::string &filename) {
+  std::ifstream file(filename, std::ios::binary | std::ios::ate);
+
+  if (!file.is_open()) {
+    throw std::runtime_error("Failed opening file!");
+  }
+  size_t fileSize = (size_t)file.tellg();
+  std::vector<char> fileBuffer(fileSize);
+  file.seekg(0);
+
+  file.read(fileBuffer.data(), fileSize);
+
+  file.close();
+
+  return fileBuffer;
+}

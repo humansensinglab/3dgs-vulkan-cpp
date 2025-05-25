@@ -30,16 +30,21 @@ private:
   std::vector<VkFence> _fences;
   std::vector<VkSemaphore> _semaphores;
 
-  VkDescriptorSetLayout descriptorSetLayout = VK_NULL_HANDLE;
-  VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-  std::vector<VkDescriptorSet> descriptorSets;
+  VkDescriptorSetLayout _descriptorSetLayout = VK_NULL_HANDLE;
+  VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
+  std::vector<VkDescriptorSet> _descriptorSets;
 
+  VkPipelineLayout _pipelineLayout;
+  VkPipeline _computePipeline;
   uint32_t currentFrame = 0;
 
   void CreateCommandBuffers();
   void CreateSynchronization();
   void CreateDescriptorSetLayout();
   void CreateDescriptorPool();
+  void CreateComputePipeline();
+  void SetupDescriptorSet();
+  VkShaderModule CreateShaderModule(const std::vector<char> &code);
 
   const std::vector<DescriptorBinding> PIPELINE_BINDINGS = {
       {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
