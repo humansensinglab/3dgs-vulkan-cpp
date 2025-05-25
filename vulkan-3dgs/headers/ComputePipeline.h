@@ -14,14 +14,21 @@ struct DescriptorBinding {
   uint32_t count = 1;
 };
 
+enum class PipelineType {
+  DEBUG_RED_FILL,
+  CULLING,
+  SORTING,
+  SPLATTING,
+};
+
 class ComputePipeline {
 public:
   ComputePipeline(VulkanContext &vkContext) : _vkContext(vkContext){};
-  ~ComputePipeline(){};
+  ~ComputePipeline() { CleanUp(); }
 
   void Initialize();
-  /* void RenderFrame();
-   void CleanUp();*/
+  void RenderFrame();
+  void CleanUp();
 
 private:
   VulkanContext &_vkContext;
@@ -30,36 +37,43 @@ private:
   std::vector<VkFence> _fences;
   std::vector<VkSemaphore> _semaphores;
 
-  VkDescriptorSetLayout _descriptorSetLayout = VK_NULL_HANDLE;
+  std::map<PipelineType, VkDescriptorSetLayout> _descriptorSetLayouts;
   VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
-  std::vector<VkDescriptorSet> _descriptorSets;
+  std::map<PipelineType, std::vector<VkDescriptorSet>> _descriptorSets;
 
-  VkPipelineLayout _pipelineLayout;
-  VkPipeline _computePipeline;
-  uint32_t currentFrame = 0;
+  std::map<PipelineType, VkPipelineLayout> _pipelineLayouts;
+  std::map<PipelineType, VkPipeline> _computePipelines;
+  uint32_t _currentFrame = 0;
 
   void CreateCommandBuffers();
   void CreateSynchronization();
-  void CreateDescriptorSetLayout();
+  void CreateDescriptorSetLayout(const PipelineType pType);
   void CreateDescriptorPool();
-  void CreateComputePipeline();
-  void SetupDescriptorSet();
+  void CreateComputePipeline(std::string shaderName, const PipelineType pType);
+  void SetupDescriptorSet(const PipelineType pType);
   VkShaderModule CreateShaderModule(const std::vector<char> &code);
 
-  const std::vector<DescriptorBinding> PIPELINE_BINDINGS = {
-      {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-       VK_SHADER_STAGE_COMPUTE_BIT}, // Output image
-                                     //{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-      // VK_SHADER_STAGE_COMPUTE_BIT}, // Camera data
-      //{2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      // VK_SHADER_STAGE_COMPUTE_BIT}, // Gaussian positions
-      //{3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      // VK_SHADER_STAGE_COMPUTE_BIT}, // Gaussian scales
-      //{4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      // VK_SHADER_STAGE_COMPUTE_BIT}, // Gaussian rotations
-      //{5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      // VK_SHADER_STAGE_COMPUTE_BIT}, // Gaussian opacity
-      //{6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-      // VK_SHADER_STAGE_COMPUTE_BIT}, // Gaussian SH data
-  };
+  void TransitionImage(VkImageLayout in, VkImageLayout out, VkImage image,
+                       VkAccessFlags src, VkAccessFlags dst);
+
+  // repeated layouts:: we can share them. TODO
+  std::map<PipelineType, std::vector<DescriptorBinding>> SHADER_LAYOUTS = {
+      {PipelineType::DEBUG_RED_FILL,
+       {{0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1}}},
+
+      {PipelineType::CULLING,
+       {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1},
+        {1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT,
+         1}}},
+
+      {PipelineType::SORTING,
+       {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1},
+        {1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT,
+         1}}},
+
+      {PipelineType::SPLATTING,
+       {{0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1},
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1},
+        {2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT,
+         1}}}};
 };

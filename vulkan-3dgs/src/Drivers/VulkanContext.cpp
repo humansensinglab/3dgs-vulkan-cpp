@@ -29,9 +29,11 @@ void VulkanContext::CleanUp() {
   vkDestroyDevice(_vcxMainDevice.logicalDevice, nullptr);
   vkDestroySurfaceKHR(_vcxInstance, _vcxSurface, nullptr);
   vkDestroyInstance(_vcxInstance, nullptr);
+
+  std::cout << "Vulkan Context CleanUp complete" << std::endl;
 }
 
-VulkanContext::~VulkanContext() {}
+VulkanContext::~VulkanContext() { CleanUp(); }
 
 void VulkanContext::CreateInstance() {
 

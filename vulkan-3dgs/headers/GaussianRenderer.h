@@ -25,6 +25,8 @@ public:
     return _gaussianData ? _gaussianData->GetCount() : 0;
   }
 
+  void render();
+
 private:
   VulkanContext &_vulkanContext;
   BufferManager _bufferManager;

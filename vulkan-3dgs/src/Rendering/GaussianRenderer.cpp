@@ -22,6 +22,8 @@ void GaussianRenderer::LoadGaussianData(
   std::cout << " Gaussian data loaded and GPU resources created !" << std::endl;
 }
 
+void GaussianRenderer::render() { _computePipeline.RenderFrame(); }
+
 void GaussianRenderer::CreateGaussianBuffers() {
   std::cout << "\n--- Creating Gaussian GPU Buffers and uploading to GPU "
                "thorugh staging buffers ---"
