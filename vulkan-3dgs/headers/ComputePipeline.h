@@ -7,6 +7,8 @@
 #include <map>
 #include <vector>
 
+constexpr int frames_in_flight = 2;
+
 struct DescriptorBinding {
   uint32_t binding;
   VkDescriptorType type;
@@ -51,10 +53,14 @@ private:
   void CreateDescriptorPool();
   void CreateComputePipeline(std::string shaderName, const PipelineType pType);
   void SetupDescriptorSet(const PipelineType pType);
+  void RecordCommandBufferForImage(uint32_t imageIndex);
   VkShaderModule CreateShaderModule(const std::vector<char> &code);
 
-  void TransitionImage(VkImageLayout in, VkImageLayout out, VkImage image,
-                       VkAccessFlags src, VkAccessFlags dst);
+  void TransitionImage(VkCommandBuffer commandBuffer, VkImageLayout in,
+                       VkImageLayout out, VkImage image, VkAccessFlags src,
+                       VkAccessFlags dst);
+  void UpdateAllDescriptorSets(const PipelineType pType);
+  void RecordAllCommandBuffers();
 
   // repeated layouts:: we can share them. TODO
   std::map<PipelineType, std::vector<DescriptorBinding>> SHADER_LAYOUTS = {

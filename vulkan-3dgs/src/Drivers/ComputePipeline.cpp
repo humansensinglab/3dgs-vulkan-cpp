@@ -7,7 +7,12 @@ void ComputePipeline::Initialize() {
   CreateDescriptorPool();
   CreateComputePipeline("src/Shaders/comp.spv", PipelineType::DEBUG_RED_FILL);
   SetupDescriptorSet(PipelineType::DEBUG_RED_FILL);
+  UpdateAllDescriptorSets(PipelineType::DEBUG_RED_FILL);
   CreateSynchronization();
+
+  RecordAllCommandBuffers();
+  std::cout << "\n=== Compute Pipeline Initialization Complete ===\n"
+            << std::endl;
 }
 
 void ComputePipeline::CleanUp() {
@@ -66,7 +71,7 @@ void ComputePipeline::CleanUp() {
 
 void ComputePipeline::CreateCommandBuffers() {
 
-  int size_sw = 1;
+  int size_sw = _vkContext.GetSwapchainImages().size();
   _commandBuffers.resize(size_sw);
   VkCommandBufferAllocateInfo cbAllocInfo = {};
   cbAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -86,8 +91,8 @@ void ComputePipeline::CreateCommandBuffers() {
 
 void ComputePipeline::CreateSynchronization() {
 
-  _semaphores.resize(1); // When swapchain image is ready
-  _fences.resize(1);     // When compute work is done
+  _semaphores.resize(frames_in_flight); // When swapchain image is ready
+  _fences.resize(frames_in_flight);     // When compute work is done
 
   VkSemaphoreCreateInfo semaphoreInfo = {};
   semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -96,12 +101,12 @@ void ComputePipeline::CreateSynchronization() {
   fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-  for (size_t i = 0; i < 1; i++) {
+  for (size_t i = 0; i < frames_in_flight; i++) {
 
     if (vkCreateSemaphore(_vkContext.GetLogicalDevice(), &semaphoreInfo,
                           nullptr, &_semaphores[i]) != VK_SUCCESS ||
         vkCreateFence(_vkContext.GetLogicalDevice(), &fenceInfo, nullptr,
-                      &_fences[0]) != VK_SUCCESS) {
+                      &_fences[i]) != VK_SUCCESS) {
       throw std::runtime_error("Failed to create synchronization objects!");
     }
   }
@@ -182,23 +187,82 @@ void ComputePipeline::CreateComputePipeline(std::string shaderName,
 }
 
 void ComputePipeline::SetupDescriptorSet(const PipelineType pType) {
-  std::cout << "  - Setting up descriptor set..." << std::endl;
+  std::cout << "  - Setting up descriptor sets for pipeline type " << (int)pType
+            << "..." << std::endl;
 
-  // 1. Allocate descriptor set from our pool
-  _descriptorSets[pType].resize(1); // We need 1 descriptor set
+  // Get number of swapchain images
+  uint32_t swapchainImageCount =
+      static_cast<uint32_t>(_vkContext.GetSwapchainImages().size());
 
+  // Resize vector to hold one descriptor set per swapchain image
+  _descriptorSets[pType].resize(swapchainImageCount);
+
+  // Create layout array (same layout for all sets)
+  std::vector<VkDescriptorSetLayout> layouts(swapchainImageCount,
+                                             _descriptorSetLayouts[pType]);
+
+  // Allocate all descriptor sets at once
   VkDescriptorSetAllocateInfo allocInfo = {};
   allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
   allocInfo.descriptorPool = _descriptorPool;
-  allocInfo.descriptorSetCount = 1;
-  allocInfo.pSetLayouts = &_descriptorSetLayouts[pType];
+  allocInfo.descriptorSetCount = swapchainImageCount;
+  allocInfo.pSetLayouts = layouts.data();
 
   if (vkAllocateDescriptorSets(_vkContext.GetLogicalDevice(), &allocInfo,
                                _descriptorSets[pType].data()) != VK_SUCCESS) {
     throw std::runtime_error("Failed to allocate descriptor sets!");
   }
 
-  std::cout << "Descriptor set allocated for pipeline type " << (int)pType
+  std::cout << " Allocated " << swapchainImageCount
+            << " descriptor sets for pipeline type " << (int)pType << std::endl;
+}
+
+void ComputePipeline::RecordCommandBufferForImage(uint32_t imageIndex) {
+  VkCommandBuffer commandBuffer = _commandBuffers[imageIndex];
+
+  // Begin recording
+  VkCommandBufferBeginInfo beginInfo = {};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  beginInfo.flags = 0; // Not one-time submit
+
+  if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to begin recording command buffer!");
+  }
+
+  // Transition image to GENERAL
+  TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED,
+                  VK_IMAGE_LAYOUT_GENERAL,
+                  _vkContext.GetSwapchainImages()[imageIndex].image, 0,
+                  VK_ACCESS_SHADER_WRITE_BIT);
+
+  // Bind pipeline
+  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                    _computePipelines[PipelineType::DEBUG_RED_FILL]);
+
+  // Bind descriptor set
+  vkCmdBindDescriptorSets(
+      commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+      _pipelineLayouts[PipelineType::DEBUG_RED_FILL], 0, 1,
+      &_descriptorSets[PipelineType::DEBUG_RED_FILL][imageIndex], 0, nullptr);
+
+  // Dispatch
+  VkExtent2D extent = _vkContext.GetSwapchainExtent();
+  uint32_t groupCountX = (extent.width + 15) / 16;
+  uint32_t groupCountY = (extent.height + 15) / 16;
+  vkCmdDispatch(commandBuffer, groupCountX, groupCountY, 1);
+
+  // Transition back to PRESENT
+  TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_GENERAL,
+                  VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                  _vkContext.GetSwapchainImages()[imageIndex].image,
+                  VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT);
+
+  // End recording
+  if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to record command buffer!");
+  }
+
+  std::cout << " Command buffer recorded for swapchain image " << imageIndex
             << std::endl;
 }
 
@@ -217,7 +281,8 @@ ComputePipeline::CreateShaderModule(const std::vector<char> &code) {
   return shaderModule;
 }
 
-void ComputePipeline::TransitionImage(VkImageLayout in, VkImageLayout out,
+void ComputePipeline::TransitionImage(VkCommandBuffer commandBuffer,
+                                      VkImageLayout in, VkImageLayout out,
                                       VkImage image, VkAccessFlags src,
                                       VkAccessFlags dst) {
 
@@ -241,7 +306,7 @@ void ComputePipeline::TransitionImage(VkImageLayout in, VkImageLayout out,
   barrier.dstAccessMask = dst;                 // Compute shader will write
 
   vkCmdPipelineBarrier(
-      _commandBuffers[_currentFrame],       // Command buffer to record into
+      commandBuffer,                        // Command buffer to record into
       VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,    // Before everything else
       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // Before compute shader starts
       0, 0, nullptr, 0, nullptr, 1,
@@ -252,89 +317,22 @@ void ComputePipeline::RenderFrame() {
 
   vkWaitForFences(_vkContext.GetLogicalDevice(), 1, &_fences[_currentFrame],
                   VK_TRUE, UINT64_MAX);
-
   vkResetFences(_vkContext.GetLogicalDevice(), 1, &_fences[_currentFrame]);
+
   uint32_t imageIndex;
   VkResult result = vkAcquireNextImageKHR(
       _vkContext.GetLogicalDevice(), _vkContext.GetSwapchain(), UINT64_MAX,
       _semaphores[_currentFrame], VK_NULL_HANDLE, &imageIndex);
 
-  VkDescriptorImageInfo imageInfo = {};
-  imageInfo.imageLayout =
-      VK_IMAGE_LAYOUT_GENERAL; // Layout for compute shader write
-  imageInfo.imageView =
-      _vkContext.GetSwapchainImages()[imageIndex].imageView; // The actual image
-  imageInfo.sampler = VK_NULL_HANDLE; // Not needed for storage images
+  if (result != VK_SUCCESS) {
+    throw std::runtime_error("Failed to acquire swapchain image!");
+  }
 
-  VkWriteDescriptorSet descriptorWrite = {};
-  descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptorWrite.dstSet = _descriptorSets[PipelineType::DEBUG_RED_FILL]
-                                          [0]; // Write to our descriptor set
-  descriptorWrite.dstBinding = 0; // Write to binding 0 (output image in shader)
-  descriptorWrite.dstArrayElement = 0; // First element (not an array)
-  descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-  descriptorWrite.descriptorCount = 1;     // Writing 1 descriptor
-  descriptorWrite.pImageInfo = &imageInfo; // The image info we just filled
+  // 5. Submit
 
-  vkUpdateDescriptorSets(_vkContext.GetLogicalDevice(), 1, &descriptorWrite, 0,
-                         nullptr);
-
-  vkResetCommandBuffer(_commandBuffers[_currentFrame],
-                       0); // Clear previous commands from buffer
-
-  VkCommandBufferBeginInfo beginInfo = {};
-  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-  beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-  vkBeginCommandBuffer(_commandBuffers[_currentFrame],
-                       &beginInfo); // Start recording commands
-
-  TransitionImage(VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
-                  _vkContext.GetSwapchainImages()[imageIndex].image, 0,
-                  VK_ACCESS_SHADER_WRITE_BIT);
-
-  // Bind our compute pipeline
-  vkCmdBindPipeline(
-      _commandBuffers[_currentFrame], // Command buffer
-      VK_PIPELINE_BIND_POINT_COMPUTE, // Compute pipeline (not graphics)
-      _computePipelines[PipelineType::DEBUG_RED_FILL]); // Our compute pipeline
-                                                        // object
-
-  // Bind our descriptor set (contains the swapchain image)
-  vkCmdBindDescriptorSets(
-      _commandBuffers[_currentFrame],                 // Command buffer
-      VK_PIPELINE_BIND_POINT_COMPUTE,                 // Compute pipeline
-      _pipelineLayouts[PipelineType::DEBUG_RED_FILL], // Pipeline layout
-      0, // First set index (set = 0 in shader)
-      1, // Number of descriptor sets
-      &_descriptorSets[PipelineType::DEBUG_RED_FILL]
-                      [0], // Array of descriptor sets
-      0, nullptr);         // No dynamic offsets
-
-  // Dispatch compute work - calculate work groups needed
-  VkExtent2D extent = _vkContext.GetSwapchainExtent(); // Get screen dimensions
-  uint32_t groupCountX =
-      (extent.width + 15) / 16; // Ceiling division for 8x8 workgroups
-  uint32_t groupCountY =
-      (extent.height + 15) / 16; // Ceiling division for 8x8 workgroups
-
-  vkCmdDispatch(_commandBuffers[_currentFrame], // Command buffer
-                groupCountX,                    // Number of workgroups in X
-                groupCountY,                    // Number of workgroups in Y
-                1); // Number of workgroups in Z (2D, so 1)
-
-  TransitionImage(VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                  _vkContext.GetSwapchainImages()[imageIndex].image,
-                  VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT);
-
-  // End command buffer recording
-  vkEndCommandBuffer(
-      _commandBuffers[_currentFrame]); // Stop recording, commands are ready
-
-  // 5. Submit and present
-  // Submit commands to GPU
   VkSubmitInfo submitInfo = {};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO; // Type of submit
+
   VkSemaphore waitSemaphores[] = {
       _semaphores[_currentFrame]}; // Wait for image to be available
   VkPipelineStageFlags waitStages[] = {
@@ -346,7 +344,7 @@ void ComputePipeline::RenderFrame() {
       waitStages; // Which pipeline stages wait for semaphores
   submitInfo.commandBufferCount = 1; // Number of command buffers to submit
   submitInfo.pCommandBuffers =
-      &_commandBuffers[_currentFrame]; // Array of command buffers to submit
+      &_commandBuffers[imageIndex]; // Array of command buffers to submit
 
   if (vkQueueSubmit(_vkContext.GetGraphicsQueue(), // Queue to submit to
                     1,                             // Number of submits
@@ -369,6 +367,7 @@ void ComputePipeline::RenderFrame() {
       &imageIndex; // Which image in each swapchain to present
 
   vkQueuePresentKHR(_vkContext.GetGraphicsQueue(), &presentInfo);
+  _currentFrame = (_currentFrame + 1) % _fences.size();
 }
 
 void ComputePipeline::CreateDescriptorPool() {
@@ -393,7 +392,10 @@ void ComputePipeline::CreateDescriptorPool() {
   poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
   poolInfo.pPoolSizes = poolSizes.data();
-  poolInfo.maxSets = static_cast<uint32_t>(SHADER_LAYOUTS.size());
+  uint32_t swapchainImageCount =
+      static_cast<uint32_t>(_vkContext.GetSwapchainImages().size());
+  poolInfo.maxSets =
+      static_cast<uint32_t>(SHADER_LAYOUTS.size()) * swapchainImageCount;
 
   if (vkCreateDescriptorPool(_vkContext.GetLogicalDevice(), &poolInfo, nullptr,
                              &_descriptorPool) != VK_SUCCESS) {
@@ -402,4 +404,50 @@ void ComputePipeline::CreateDescriptorPool() {
 
   std::cout << " Descriptor Pool created with " << poolSizes.size()
             << " different Pool Size(s)" << std::endl;
+}
+
+void ComputePipeline::UpdateAllDescriptorSets(const PipelineType pType) {
+  std::cout << "  - Updating descriptor sets with swapchain images..."
+            << std::endl;
+
+  auto &swapchainImages = _vkContext.GetSwapchainImages();
+
+  // Update each descriptor set with its corresponding swapchain image
+  for (uint32_t i = 0; i < swapchainImages.size(); i++) {
+    VkDescriptorImageInfo imageInfo = {};
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    imageInfo.imageView =
+        swapchainImages[i].imageView; // Specific image for this set
+    imageInfo.sampler = VK_NULL_HANDLE;
+
+    VkWriteDescriptorSet descriptorWrite = {};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet =
+        _descriptorSets[pType][i]; // Specific descriptor set
+    descriptorWrite.dstBinding = 0;
+    descriptorWrite.dstArrayElement = 0;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.pImageInfo = &imageInfo;
+
+    vkUpdateDescriptorSets(_vkContext.GetLogicalDevice(), 1, &descriptorWrite,
+                           0, nullptr);
+
+    std::cout << "Descriptor set " << i << "  Swapchain image " << i
+              << std::endl;
+  }
+}
+
+void ComputePipeline::RecordAllCommandBuffers() {
+  std::cout << "  - Pre-recording command buffers..." << std::endl;
+
+  uint32_t swapchainImageCount =
+      static_cast<uint32_t>(_vkContext.GetSwapchainImages().size());
+
+  for (uint32_t i = 0; i < swapchainImageCount; i++) {
+    RecordCommandBufferForImage(i);
+  }
+
+  std::cout << " All " << swapchainImageCount
+            << " command buffers pre-recorded!" << std::endl;
 }
