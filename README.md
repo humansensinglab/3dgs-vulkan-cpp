@@ -9,7 +9,7 @@ A high-performance Vulkan implementation of 3D Gaussian Splatting for real-time 
 - ✅ PLY file loading 
 - ✅ Vulkan context and buffer management  
 - ✅ GPU memory allocation and staging buffers
-- 🔄 Compute pipeline and descriptor sets (in progress)
+- ✅ Compute pipeline and descriptor sets (in progress)
 - ⏳ 3DGS compute shaders (projection, sorting, rasterization)
 - ⏳ Real-time rendering loop
 
