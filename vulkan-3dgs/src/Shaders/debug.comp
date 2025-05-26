@@ -3,9 +3,31 @@
 layout(local_size_x = 16, local_size_y = 16) in;
 
 layout(set = 0, binding = 0, rgba8) uniform writeonly image2D outputImage;
+
 layout(set = 0, binding = 1) readonly buffer GaussianPositions {
     vec3 positions[];
 };
+
+layout(set = 0, binding = 2) readonly buffer GaussianScales {
+    vec3 scales[];
+};
+
+layout(set = 0, binding = 3) readonly buffer GaussianRotations {
+    vec4 rotations[];
+};
+
+layout(set = 0, binding = 4) readonly buffer GaussianOpacities {
+    float opacities[];
+};
+
+layout(set = 0, binding = 5) readonly buffer GaussianSH {
+    float sh_coefficients[];
+};
+
+layout(set = 0, binding = 6) uniform CameraUniforms {
+    mat4 viewMatrix;
+    mat4 projMatrix;
+} camera;
 
 
 void main() {
