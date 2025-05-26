@@ -1,0 +1,79 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+// Output image
+layout(binding = 0, rgba8) uniform writeonly image2D outputImage;
+
+// Input buffers (results from preprocessing)
+layout(binding = 1) readonly buffer InputRadii {
+    int radii[];
+};
+
+layout(binding = 2) readonly buffer InputDepths {
+    float depths[];
+};
+
+layout(binding = 3) readonly buffer InputRGB {
+    float rgb[];
+};
+
+layout(binding = 4) readonly buffer InputPointsXY {
+    vec2 pointsXY[];
+};
+
+layout(binding = 5) readonly buffer InputPositions {
+    vec3 positions[];
+};
+
+// Camera uniforms
+layout(binding = 6) uniform CameraUniforms {
+    mat4 viewMatrix;
+    mat4 projMatrix;
+    vec3 camPos;
+    float focal_x;
+    float focal_y; 
+    float tan_fovx;
+    float tan_fovy;
+    int imageWidth;
+    int imageHeight;
+    int shDegree;
+} camera;
+
+void main() {
+     ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
+    if (coords.x >= imageSize(outputImage).x || coords.y >= imageSize(outputImage).y) return;
+    
+    vec2 pixelPos = vec2(coords);
+    
+    // Look for Gaussians that should be near this pixel
+    for (int i = 0; i < min(100000, int(radii.length())); i++) {
+        vec2 gaussianScreenPos = pointsXY[i];
+        float distanceToPixel = length(pixelPos - gaussianScreenPos);
+        
+        // If Gaussian is close to this pixel (within reasonable range)
+        if (distanceToPixel <= 50.0) {  // Check nearby Gaussians
+            
+            if (radii[i] == 1) {
+                // Found nearby Gaussian that failed frustum
+                imageStore(outputImage, coords, vec4(1.0, 0.0, 0.0, 1.0));  // RED
+                return;
+            }
+            
+            if (radii[i] == 2) {
+                // Found nearby Gaussian that passed frustum
+                imageStore(outputImage, coords, vec4(0.0, 1.0, 0.0, 1.0));  // GREEN
+                return;
+            }
+            
+            if (radii[i] > 2) {
+                // Found nearby Gaussian with actual radius
+                imageStore(outputImage, coords, vec4(0.0, 0.0, 1.0, 1.0));  // BLUE
+                return;
+            }
+        }
+    }
+    
+    // No nearby Gaussians found
+    imageStore(outputImage, coords, vec4(0.1, 0.1, 0.1, 1.0));  // Dark gray
+}

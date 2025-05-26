@@ -6,7 +6,7 @@
 #include <iostream>
 #include <map>
 
-constexpr int frames_in_flight = 2;
+constexpr int frames_in_flight = 1;
 
 struct DescriptorBinding {
   uint32_t binding;
@@ -21,6 +21,8 @@ enum class PipelineType {
   CULLING,
   SORTING,
   SPLATTING,
+  PREPROCESS,
+  NEAREST
 };
 
 class ComputePipeline {
@@ -31,10 +33,7 @@ public:
   void Initialize(GaussianBuffers gaussianBuffer);
   void RenderFrame();
   void CleanUp();
-
-  void setUniformBuffer(VkBuffer viewProjection) {
-    _gaussianBuffers.viewProjection = viewProjection;
-  }
+  void setNumGaussians(int gauss) { _numGaussians = gauss; }
 
 private:
   VulkanContext &_vkContext;
@@ -76,9 +75,9 @@ private:
 
   // repeated layouts:: we can share them. TODO
   std::map<PipelineType, std::vector<DescriptorBinding>> SHADER_LAYOUTS = {
-      {PipelineType::DEBUG_RED_FILL,
+      {PipelineType::PREPROCESS,
        {{0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         ""},
+         "outputImage"},
         {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
          "xyz"},
         {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
@@ -90,12 +89,35 @@ private:
         {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
          "sh"},
         {6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "viewProjection"}}},
+         "camUniform"},
+        {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "radii"},
+        {8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "depths"},
+        {9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "rgb"},
+        {10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "conicOpacity"},
+        {11, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "pointsXY"},
+        {12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "tilesTouched"}}},
 
-      {PipelineType::CULLING,
-       {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1},
-        {1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT,
-         1}}},
+      {PipelineType::NEAREST,
+       {{0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "outputImage"},
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "radii"},
+        {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "depths"},
+        {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "rgb"},
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "pointsXY"},
+        {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "xyz"},
+        {6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "camUniform"}}},
 
       {PipelineType::SORTING,
        {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1},
@@ -109,4 +131,5 @@ private:
          1}}}};
 
   GaussianBuffers _gaussianBuffers;
+  int _numGaussians;
 };

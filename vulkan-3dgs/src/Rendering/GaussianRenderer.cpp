@@ -17,16 +17,22 @@ void GaussianRenderer::LoadGaussianData(
 
   _gaussianData = std::move(gaussianData);
 
-  CreateGaussianBuffers();
-  createUniformBuffer();
-  _computePipeline.Initialize({_xyzBuffer, _scaleBuffer, _rotationBuffer,
-                               _opacityBuffer, _shBuffer,
-                               _viewProjectionBuffer});
-
-  std::cout << " Gaussian data loaded and GPU resources created !" << std::endl;
+  _nGauss = _gaussianData->GetCount();
+  std::cout << " Gaussian data loaded!" << std::endl;
 }
 
-void GaussianRenderer::render() { _computePipeline.RenderFrame(); }
+void GaussianRenderer::InitComputePipeline() {
+  _computePipeline.setNumGaussians(_nGauss);
+  _computePipeline.Initialize(_buffers);
+}
+
+void GaussianRenderer::CreateBuffers() {
+  CreateGaussianBuffers();
+  CreateUniformBuffer();
+  CreatePipelineStorageBuffers();
+}
+
+void GaussianRenderer::Render() { _computePipeline.RenderFrame(); }
 
 void GaussianRenderer::InitializeCamera(float windowWidth, float windowHeight) {
   float aspectRatio = windowWidth / windowHeight;
@@ -93,38 +99,57 @@ void GaussianRenderer::processInput(float deltaTime) {
 
 void GaussianRenderer::CreateGaussianBuffers() {
   std::cout << "\n--- Creating Gaussian GPU Buffers and uploading to GPU "
-               "thorugh staging buffers ---"
+               "through staging buffers ---"
             << std::endl;
 
-  CreateAndUploadBuffer<glm::vec3>(_xyzBuffer,
+  CreateAndUploadBuffer<glm::vec3>(_buffers.xyz,
                                    _gaussianData->GetPositionsData(), "_xyz");
-  CreateAndUploadBuffer<glm::vec3>(_scaleBuffer, _gaussianData->GetScalesData(),
-                                   "_scale");
-  CreateAndUploadBuffer<glm::vec4>(_rotationBuffer,
+  CreateAndUploadBuffer<glm::vec3>(_buffers.scales,
+                                   _gaussianData->GetScalesData(), "_scale");
+  CreateAndUploadBuffer<glm::vec4>(_buffers.rotations,
                                    _gaussianData->GetRotationsData(), "_rot");
-  CreateAndUploadBuffer<float>(_opacityBuffer,
+  CreateAndUploadBuffer<float>(_buffers.opacity,
                                _gaussianData->GetOpacitiesData(), "_opacity");
   CreateAndUploadBuffer<float>(
-      _shBuffer, _gaussianData->GetSHData(), "_SH",
+      _buffers.sh, _gaussianData->GetSHData(), "_SH",
       3 * (_gaussianData->GetSHCoefficientsPerChannel()));
 }
 
-void GaussianRenderer::createUniformBuffer() {
+void GaussianRenderer::CreatePipelineStorageBuffers() {
+  CreateWriteBuffers<int>(_buffers.radii, "radii");
+  CreateWriteBuffers<float>(_buffers.depth, "depth");
+  CreateWriteBuffers<float>(_buffers.color, "color");
+  CreateWriteBuffers<glm::vec4>(_buffers.conicOpacity, "conicOpacity");
+  CreateWriteBuffers<glm::vec2>(_buffers.points2d, "points2d");
+  CreateWriteBuffers<int>(_buffers.tilesTouched, "tilesTouched");
+}
+
+void GaussianRenderer::UpdateCameraUniforms() {
+  CameraUniforms uniforms = _camera->getUniforms();
+  uniforms.shDegree = _shDegree;
+
+  // Copy to persistently mapped memory
+  memcpy(_cameraUniformMapped, &uniforms, sizeof(uniforms));
+
+  std::cout << "Updated camera uniforms" << std::endl;
+}
+
+void GaussianRenderer::CreateUniformBuffer() {
 
   VkDevice device = _vulkanContext.GetLogicalDevice();
   VkPhysicalDevice physicalDevice = _vulkanContext.GetPhysicalDevice();
 
-  CameraUniforms camUniforms = _camera->getViewProjection();
+  CameraUniforms camUniforms = _camera->getUniforms();
+  camUniforms.shDegree = _shDegree;
   VkDeviceSize bufferSize = sizeof(camUniforms);
   std::cout << " Creating uniform buffer : " << bufferSize << " bytes "
             << std::endl;
 
-  _viewProjectionBuffer =
+  _buffers.camUniform =
       _bufferManager.CreateUniformBuffer(device, physicalDevice, bufferSize);
 
-  void *mappedMemory;
-  VkDeviceMemory mem = _bufferManager.GetBufferMemory(_viewProjectionBuffer);
-  vkMapMemory(device, mem, 0, bufferSize, 0, &mappedMemory);
-  memcpy(mappedMemory, &camUniforms, bufferSize);
-  vkUnmapMemory(device, mem);
+  VkDeviceMemory mem = _bufferManager.GetBufferMemory(_buffers.camUniform);
+  vkMapMemory(device, mem, 0, bufferSize, 0, &_cameraUniformMapped);
+
+  UpdateCameraUniforms();
 }

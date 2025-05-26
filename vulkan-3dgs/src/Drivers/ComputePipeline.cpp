@@ -5,11 +5,18 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
 
   _gaussianBuffers = gaussianBuffer;
   CreateCommandBuffers();
-  CreateDescriptorSetLayout(PipelineType::DEBUG_RED_FILL);
   CreateDescriptorPool();
-  CreateComputePipeline("src/Shaders/comp.spv", PipelineType::DEBUG_RED_FILL);
-  SetupDescriptorSet(PipelineType::DEBUG_RED_FILL);
-  UpdateAllDescriptorSets(PipelineType::DEBUG_RED_FILL);
+
+  CreateDescriptorSetLayout(PipelineType::PREPROCESS);
+  CreateComputePipeline("src/Shaders/preprocess.spv", PipelineType::PREPROCESS);
+  SetupDescriptorSet(PipelineType::PREPROCESS);
+  UpdateAllDescriptorSets(PipelineType::PREPROCESS);
+
+  CreateDescriptorSetLayout(PipelineType::NEAREST);
+  CreateComputePipeline("src/Shaders/nearest.spv", PipelineType::NEAREST);
+  SetupDescriptorSet(PipelineType::NEAREST);
+  UpdateAllDescriptorSets(PipelineType::NEAREST);
+
   CreateSynchronization();
 
   RecordAllCommandBuffers();
@@ -240,19 +247,40 @@ void ComputePipeline::RecordCommandBufferForImage(uint32_t imageIndex) {
 
   // Bind pipeline
   vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                    _computePipelines[PipelineType::DEBUG_RED_FILL]);
+                    _computePipelines[PipelineType::PREPROCESS]);
 
   // Bind descriptor set
   vkCmdBindDescriptorSets(
       commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-      _pipelineLayouts[PipelineType::DEBUG_RED_FILL], 0, 1,
-      &_descriptorSets[PipelineType::DEBUG_RED_FILL][imageIndex], 0, nullptr);
+      _pipelineLayouts[PipelineType::PREPROCESS], 0, 1,
+      &_descriptorSets[PipelineType::PREPROCESS][imageIndex], 0, nullptr);
 
-  // Dispatch
+  //// Dispatch
   VkExtent2D extent = _vkContext.GetSwapchainExtent();
-  uint32_t groupCountX = (extent.width + 15) / 16;
-  uint32_t groupCountY = (extent.height + 15) / 16;
-  vkCmdDispatch(commandBuffer, groupCountX, groupCountY, 1);
+  // uint32_t groupCountX = (extent.width + 15) / 16;
+  // uint32_t groupCountY = (extent.height + 15) / 16;
+  uint32_t groupX = (_numGaussians + 255) / 256;
+  vkCmdDispatch(commandBuffer, groupX, 1, 1);
+
+  VkMemoryBarrier barrier = {};
+  barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+  barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+  barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &barrier, 0,
+                       nullptr, 0, nullptr);
+
+  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                    _computePipelines[PipelineType::NEAREST]);
+  vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                          _pipelineLayouts[PipelineType::NEAREST], 0, 1,
+                          &_descriptorSets[PipelineType::NEAREST][imageIndex],
+                          0, nullptr);
+
+  uint32_t groupXScreen = (extent.width + 15) / 16;
+  uint32_t groupYScreen = (extent.height + 15) / 16;
+  vkCmdDispatch(commandBuffer, groupXScreen, groupYScreen, 1);
 
   // Transition back to PRESENT
   TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_GENERAL,
@@ -432,6 +460,7 @@ void ComputePipeline::UpdateAllDescriptorSets(const PipelineType pType) {
 }
 
 VkBuffer ComputePipeline::GetBufferByName(const std::string &bufferName) {
+  // Map is better XD
   if (bufferName == "xyz")
     return _gaussianBuffers.xyz;
   if (bufferName == "scales")
@@ -442,8 +471,20 @@ VkBuffer ComputePipeline::GetBufferByName(const std::string &bufferName) {
     return _gaussianBuffers.opacity;
   if (bufferName == "sh")
     return _gaussianBuffers.sh;
-  if (bufferName == "viewProjection")
-    return _gaussianBuffers.viewProjection;
+  if (bufferName == "camUniform")
+    return _gaussianBuffers.camUniform;
+  if (bufferName == "radii")
+    return _gaussianBuffers.radii;
+  if (bufferName == "depths")
+    return _gaussianBuffers.depth;
+  if (bufferName == "rgb")
+    return _gaussianBuffers.color;
+  if (bufferName == "conicOpacity")
+    return _gaussianBuffers.conicOpacity;
+  if (bufferName == "pointsXY")
+    return _gaussianBuffers.points2d;
+  if (bufferName == "tilesTouched")
+    return _gaussianBuffers.tilesTouched;
 
   throw std::runtime_error("Unknown buffer name: " + bufferName);
 }

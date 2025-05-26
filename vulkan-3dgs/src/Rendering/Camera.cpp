@@ -1,9 +1,11 @@
 #include "Camera.h"
 
-Camera::Camera(float fov, float aspectRatio, float nearPlane, float farPlane)
-    : _pos(glm::vec3(0.0f, 0.0f, 3.0f)), _front(glm::vec3(0.0f, 0.0f, -1.0f)),
-      _worldUp(glm::vec3(0.0f, 1.0f, 0.0f)),
-      _yaw(-90.0f) // Start looking forward (negative Z)
+Camera::Camera(int w, int h, float fov, float aspectRatio, float nearPlane,
+               float farPlane)
+    : _pos(glm::vec3(-0.53f, -0.25f, 33.74f)),
+      _front(glm::vec3(0.0f, 0.0f, -1.0f)),
+      _worldUp(glm::vec3(0.0f, 1.0f, 0.0f)), _yaw(-90.0f), _w(w),
+      _h(h) // Start looking forward (negative Z)
       ,
       _pitch(0.0f), _fov(fov), _aspectRatio(aspectRatio), _nearPlane(nearPlane),
       _farPlane(farPlane), _moveSpeed(5.0f), _mouseSensitivity(0.1f) {
@@ -66,6 +68,28 @@ void Camera::ProcessKeyboard(CameraMovement direction, float deltaTime) {
 
 void Camera::UpdateAspectRatio(float newAspectRatio) {
   _aspectRatio = newAspectRatio;
+}
+
+CameraUniforms Camera::getUniforms() {
+  // a lot of this can be just stored in first frame... for now whatever....
+  float fov_radians = glm::radians(_fov);
+
+  float fov_y = 2.0f * atan(tan(fov_radians / 2.0f) / _aspectRatio);
+
+  _uniforms.focal_x = _w / (2.0f * tan(fov_radians / 2.0f));
+  _uniforms.focal_y = _h / (2.0f * tan(fov_y / 2.0f));
+
+  _uniforms.tan_fovx = tan(fov_radians / 2.0f);
+  _uniforms.tan_fovy = tan(fov_y / 2.0f);
+
+  _uniforms.imageWidth = _w;
+  _uniforms.imageHeight = _h;
+
+  _uniforms.camPos = _pos;
+  _uniforms.viewMatrix = GetViewMatrix();
+  _uniforms.projMatrix = GetProjectionMatrix() * _uniforms.viewMatrix;
+
+  return _uniforms;
 }
 
 void Camera::UpdateCameraVectors() {

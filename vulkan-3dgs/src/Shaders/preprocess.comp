@@ -1,0 +1,403 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+// Spherical harmonics constants
+#define SH_C0 0.28209479177387814
+const float SH_C1 = 0.4886025119029199;
+const float SH_C2[5] = float[](
+    1.0925484305920792,
+    -1.0925484305920792,
+    0.31539156525252005,
+    -1.0925484305920792,
+    0.5462742152960396
+);
+const float SH_C3[7] = float[](
+    -0.5900435899266435,
+    2.890611442640554,
+    -0.4570457994644658,
+    0.3731763325901154,
+    -0.4570457994644658,
+    1.445305721320277,
+    -0.5900435899266435
+);
+
+const int BLOCK_X = 16;
+const int BLOCK_Y = 16;
+
+// Input buffers
+layout(binding = 1) readonly buffer GaussianPositions {
+    vec3 positions[];
+};
+
+layout(binding = 2) readonly buffer GaussianScales {
+    vec3 scales[];
+};
+
+layout(binding = 3) readonly buffer GaussianRotations {
+    vec4 rotations[];
+};
+
+layout(binding = 4) readonly buffer GaussianOpacities {
+    float opacities[];
+};
+
+layout(binding = 5) readonly buffer GaussianSH {
+    float sh_coefficients[];
+};
+
+// Camera uniforms
+layout(binding = 6) uniform CameraUniforms {
+    mat4 viewMatrix;
+    mat4 projMatrix;
+    vec3 camPos;
+    float focal_x;
+    float focal_y; 
+    float tan_fovx;
+    float tan_fovy;
+    int imageWidth;
+    int imageHeight;
+    int shDegree;
+} camera;
+
+// Output buffers
+layout(binding = 7) writeonly buffer OutputRadii {
+    int radii[];
+};
+
+layout(binding = 8) writeonly buffer OuputDepth {
+    float depth[];
+};
+
+layout(binding = 9) writeonly buffer OutputRGB {
+    float rgb[];
+};
+
+layout(binding = 10) writeonly buffer OutputConicOpacity {
+    vec4 conicOpacity[];
+};
+
+layout(binding = 11) writeonly buffer OutputPointsXY {
+    vec2 pointsXY[];
+};
+
+layout(binding = 12) writeonly buffer OutputTilesTouched {
+    uint tilesTouched[];
+};
+
+
+// Helper functions
+int getSHCoeffCount(int degree) {
+    if (degree == 0) return 1;
+    if (degree == 1) return 4;
+    if (degree == 2) return 9;
+    if (degree == 3) return 16;
+    return 1;
+}
+
+vec3 transformPoint4x3(vec3 point, mat4 matrix) {
+    vec4 transformed = matrix * vec4(point, 1.0);
+    return transformed.xyz;
+}
+
+vec4 transformPoint4x4(vec3 point, mat4 matrix) {
+    return matrix * vec4(point, 1.0);
+}
+
+float ndc2Pix(float ndc, int size) {
+    return ((ndc + 1.0) * size - 1.0) * 0.5;
+}
+
+bool inFrustum(int idx, out vec3 pView) {
+    vec3 pos = positions[idx];
+    pView = transformPoint4x3(pos, camera.viewMatrix);
+    
+    // Near plane culling
+    if (pView.z <= 0.01) return false;
+    
+    // Frustum culling (simplified)
+    vec4 pClip = camera.projMatrix * vec4(pView, 1.0);
+    return abs(pClip.x) <= pClip.w && abs(pClip.y) <= pClip.w;
+}
+
+vec3 computeColorFromSH(int idx) {
+    vec3 pos = positions[idx];
+    vec3 dir = normalize(pos - camera.camPos);
+    
+    // Get base index for this Gaussian's SH coefficients
+    int shBase = idx * getSHCoeffCount(camera.shDegree);
+    
+    // SH degree 0 - sh[0]
+    vec3 result = SH_C0 * vec3(
+        sh_coefficients[shBase * 3 + 0],
+        sh_coefficients[shBase * 3 + 1], 
+        sh_coefficients[shBase * 3 + 2]
+    );
+    
+    if (camera.shDegree > 0) {
+        float x = dir.x;
+        float y = dir.y;
+        float z = dir.z;
+        
+        // SH degree 1 - sh[1], sh[2], sh[3]
+        result = result - SH_C1 * y * vec3(
+            sh_coefficients[(shBase + 1) * 3 + 0],
+            sh_coefficients[(shBase + 1) * 3 + 1],
+            sh_coefficients[(shBase + 1) * 3 + 2]
+        ) + SH_C1 * z * vec3(
+            sh_coefficients[(shBase + 2) * 3 + 0],
+            sh_coefficients[(shBase + 2) * 3 + 1],
+            sh_coefficients[(shBase + 2) * 3 + 2]
+        ) - SH_C1 * x * vec3(
+            sh_coefficients[(shBase + 3) * 3 + 0],
+            sh_coefficients[(shBase + 3) * 3 + 1],
+            sh_coefficients[(shBase + 3) * 3 + 2]
+        );
+        
+        if (camera.shDegree > 1) {
+            float xx = x * x, yy = y * y, zz = z * z;
+            float xy = x * y, yz = y * z, xz = x * z;
+            
+            // SH degree 2 - sh[4] through sh[8]
+            result = result +
+                SH_C2[0] * xy * vec3(
+                    sh_coefficients[(shBase + 4) * 3 + 0],
+                    sh_coefficients[(shBase + 4) * 3 + 1],
+                    sh_coefficients[(shBase + 4) * 3 + 2]
+                ) +
+                SH_C2[1] * yz * vec3(
+                    sh_coefficients[(shBase + 5) * 3 + 0],
+                    sh_coefficients[(shBase + 5) * 3 + 1],
+                    sh_coefficients[(shBase + 5) * 3 + 2]
+                ) +
+                SH_C2[2] * (2.0 * zz - xx - yy) * vec3(
+                    sh_coefficients[(shBase + 6) * 3 + 0],
+                    sh_coefficients[(shBase + 6) * 3 + 1],
+                    sh_coefficients[(shBase + 6) * 3 + 2]
+                ) +
+                SH_C2[3] * xz * vec3(
+                    sh_coefficients[(shBase + 7) * 3 + 0],
+                    sh_coefficients[(shBase + 7) * 3 + 1],
+                    sh_coefficients[(shBase + 7) * 3 + 2]
+                ) +
+                SH_C2[4] * (xx - yy) * vec3(
+                    sh_coefficients[(shBase + 8) * 3 + 0],
+                    sh_coefficients[(shBase + 8) * 3 + 1],
+                    sh_coefficients[(shBase + 8) * 3 + 2]
+                );
+            
+            if (camera.shDegree > 2) {
+                // SH degree 3 - sh[9] through sh[15]
+                result = result +
+                    SH_C3[0] * y * (3.0 * xx - yy) * vec3(
+                        sh_coefficients[(shBase + 9) * 3 + 0],
+                        sh_coefficients[(shBase + 9) * 3 + 1],
+                        sh_coefficients[(shBase + 9) * 3 + 2]
+                    ) +
+                    SH_C3[1] * xy * z * vec3(
+                        sh_coefficients[(shBase + 10) * 3 + 0],
+                        sh_coefficients[(shBase + 10) * 3 + 1],
+                        sh_coefficients[(shBase + 10) * 3 + 2]
+                    ) +
+                    SH_C3[2] * y * (4.0 * zz - xx - yy) * vec3(
+                        sh_coefficients[(shBase + 11) * 3 + 0],
+                        sh_coefficients[(shBase + 11) * 3 + 1],
+                        sh_coefficients[(shBase + 11) * 3 + 2]
+                    ) +
+                    SH_C3[3] * z * (2.0 * zz - 3.0 * xx - 3.0 * yy) * vec3(
+                        sh_coefficients[(shBase + 12) * 3 + 0],
+                        sh_coefficients[(shBase + 12) * 3 + 1],
+                        sh_coefficients[(shBase + 12) * 3 + 2]
+                    ) +
+                    SH_C3[4] * x * (4.0 * zz - xx - yy) * vec3(
+                        sh_coefficients[(shBase + 13) * 3 + 0],
+                        sh_coefficients[(shBase + 13) * 3 + 1],
+                        sh_coefficients[(shBase + 13) * 3 + 2]
+                    ) +
+                    SH_C3[5] * z * (xx - yy) * vec3(
+                        sh_coefficients[(shBase + 14) * 3 + 0],
+                        sh_coefficients[(shBase + 14) * 3 + 1],
+                        sh_coefficients[(shBase + 14) * 3 + 2]
+                    ) +
+                    SH_C3[6] * x * (xx - 3.0 * yy) * vec3(
+                        sh_coefficients[(shBase + 15) * 3 + 0],
+                        sh_coefficients[(shBase + 15) * 3 + 1],
+                        sh_coefficients[(shBase + 15) * 3 + 2]
+                    );
+            }
+        }
+    }
+    
+    result += 0.5;
+    
+    return max(result, vec3(0.0));
+}
+
+vec3 computeCov2D(vec3 mean, vec3 cov3D_data) {
+    // Transform to view space
+    vec3 t = transformPoint4x3(mean, camera.viewMatrix);
+    
+    // Clamp to frustum
+    float limx = 1.3 * camera.tan_fovx;
+    float limy = 1.3 * camera.tan_fovy;
+    float txtz = t.x / t.z;
+    float tytz = t.y / t.z;
+    t.x = clamp(txtz, -limx, limx) * t.z;
+    t.y = clamp(tytz, -limy, limy) * t.z;
+    
+    // Jacobian matrix
+    mat3 J = mat3(
+        camera.focal_x / t.z, 0.0, -(camera.focal_x * t.x) / (t.z * t.z),
+        0.0, camera.focal_y / t.z, -(camera.focal_y * t.y) / (t.z * t.z),
+        0.0, 0.0, 0.0
+    );
+    
+    // View matrix (upper 3x3)
+    mat3 W = mat3(camera.viewMatrix);
+    mat3 T = W * J;
+    
+    // 3D covariance matrix (symmetric, stored as 6 values)
+    mat3 Vrk = mat3(
+        cov3D_data.x, cov3D_data.y, cov3D_data.z,
+        cov3D_data.y, cov3D_data.x, cov3D_data.y,  // This needs proper indexing
+        cov3D_data.z, cov3D_data.y, cov3D_data.z   // This needs proper indexing
+    );
+    
+    mat3 cov = transpose(T) * transpose(Vrk) * T;
+    
+    // Low-pass filter
+    cov[0][0] += 0.3;
+    cov[1][1] += 0.3;
+    
+    return vec3(cov[0][0], cov[0][1], cov[1][1]);
+}
+
+void computeCov3D(int idx, float scaleModifier, out float cov3D_out[6]) {
+    vec3 scale = scales[idx];
+    vec4 rot = rotations[idx];
+    
+    // Scaling matrix
+    mat3 S = mat3(
+        scaleModifier * scale.x, 0.0, 0.0,
+        0.0, scaleModifier * scale.y, 0.0,
+        0.0, 0.0, scaleModifier * scale.z
+    );
+    
+    // Normalize quaternion and compute rotation matrix
+    vec4 q = normalize(rot);
+    float r = q.x, x = q.y, y = q.z, z = q.w;
+    
+    mat3 R = mat3(
+        1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y - r * z), 2.0 * (x * z + r * y),
+        2.0 * (x * y + r * z), 1.0 - 2.0 * (x * x + z * z), 2.0 * (y * z - r * x),
+        2.0 * (x * z - r * y), 2.0 * (y * z + r * x), 1.0 - 2.0 * (x * x + y * y)
+    );
+    
+    mat3 M = S * R;
+    mat3 Sigma = transpose(M) * M;
+    
+    // Store symmetric matrix (upper triangle)
+    cov3D_out[0] = Sigma[0][0];
+    cov3D_out[1] = Sigma[0][1];
+    cov3D_out[2] = Sigma[0][2];
+    cov3D_out[3] = Sigma[1][1];
+    cov3D_out[4] = Sigma[1][2];
+    cov3D_out[5] = Sigma[2][2];
+}
+
+void main() {
+   
+   uint idx = gl_GlobalInvocationID.x;
+    if (idx >= positions.length()) return;
+    
+    // Initialize outputs
+    radii[idx] = 0;
+    
+    // Test: Skip frustum culling entirely
+    vec3 pView;
+    bool passedFrustum = inFrustum(int(idx), pView);
+    
+    if (!passedFrustum) {
+        radii[idx] = 1;  // Mark as "failed frustum"
+        return;
+    }
+    
+    // If we get here, it passed frustum
+    radii[idx] = 2;  // Mark as "passed frustum"
+    return;  // Stop here for testing
+
+   
+   
+   /*uint idx = gl_GlobalInvocationID.x;
+    
+    // Early exit if beyond array bounds
+    if (idx >= positions.length()) return;
+    
+    int gridX = (camera.imageWidth + BLOCK_X - 1) / BLOCK_X;
+    int gridY = (camera.imageHeight + BLOCK_Y - 1) / BLOCK_Y;
+
+    // Initialize outputs
+    radii[idx] = 0;
+    tilesTouched[idx] = 0;
+    
+    // Frustum culling
+    vec3 pView;
+    if (!inFrustum(int(idx), pView)) return;
+    
+    // Transform to clip space
+    vec3 pOrig = positions[idx];
+    vec4 pHom = transformPoint4x4(pOrig, camera.projMatrix);
+    float pW = 1.0 / (pHom.w + 0.0000001);
+    vec3 pProj = pHom.xyz * pW;
+    
+    // Compute 3D covariance
+    float cov3D_data[6];
+    computeCov3D(int(idx), 1.0, cov3D_data);
+      
+    // Compute 2D covariance  
+    vec3 cov2D = computeCov2D(pOrig, vec3(cov3D_data[0], cov3D_data[1], cov3D_data[3]));
+    
+    // Invert covariance (EWA algorithm)
+    float det = cov2D.x * cov2D.z - cov2D.y * cov2D.y;
+    if (det == 0.0) return;
+    
+    float detInv = 1.0 / det;
+    vec3 conic = vec3(cov2D.z * detInv, -cov2D.y * detInv, cov2D.x * detInv);
+    
+    // Compute extent and bounding rectangle
+    float mid = 0.5 * (cov2D.x + cov2D.z);
+    float lambda1 = mid + sqrt(max(0.1, mid * mid - det));
+    float lambda2 = mid - sqrt(max(0.1, mid * mid - det));
+    float myRadius = ceil(3.0 * sqrt(max(lambda1, lambda2)));
+    
+    vec2 pointImage = vec2(
+        ndc2Pix(pProj.x, camera.imageWidth),
+        ndc2Pix(pProj.y, camera.imageHeight)
+    );
+    
+    ivec2 rectMin = ivec2(
+        min(gridX, max(0, int((pointImage.x - myRadius) / BLOCK_X))),
+        min(gridY, max(0, int((pointImage.y - myRadius) / BLOCK_Y)))
+    );
+    
+    ivec2 rectMax = ivec2(
+        min(gridX, max(0, int((pointImage.x + myRadius + BLOCK_X - 1) / BLOCK_X))),
+        min(gridY, max(0, int((pointImage.y + myRadius + BLOCK_Y - 1) / BLOCK_Y)))
+    );
+    
+    if ((rectMax.x - rectMin.x) * (rectMax.y - rectMin.y) == 0) return;
+    
+    // Compute color from spherical harmonics
+    vec3 color = computeColorFromSH(int(idx));
+    
+    depth[idx] = pView.z;
+    radii[idx] = int(myRadius);
+    pointsXY[idx] = pointImage;
+    conicOpacity[idx] = vec4(conic, opacities[idx]);
+    tilesTouched[idx] = uint((rectMax.y - rectMin.y) * (rectMax.x - rectMin.x));
+    
+    // Store RGB
+    rgb[idx * 3 + 0] = color.r;
+    rgb[idx * 3 + 1] = color.g;
+    rgb[idx * 3 + 2] = color.b;*/
+}

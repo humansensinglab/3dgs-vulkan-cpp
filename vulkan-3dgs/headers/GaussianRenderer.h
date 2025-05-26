@@ -7,9 +7,10 @@
 class GaussianRenderer {
 
 public:
-  GaussianRenderer(VulkanContext &vulkanContext)
+  GaussianRenderer(VulkanContext &vulkanContext, int shDegree)
       : _vulkanContext(vulkanContext), _bufferManager(),
         _computePipeline(vulkanContext) {
+
     std::cout << "GaussianRenderer created" << std::endl;
   };
 
@@ -23,27 +24,15 @@ public:
     return _gaussianData ? _gaussianData->GetCount() : 0;
   }
 
-  void render();
+  void InitComputePipeline();
+  void CreateBuffers();
+  void Render();
 
   void InitializeCamera(float windowWidth, float windowHeight);
 
   static void mouse_callback(GLFWwindow *window, double xpos, double ypos);
   void processInput(float deltaTime);
-
-  void printViewMat() {
-    glm::mat4 m = _camera->GetViewMatrix();
-    std::cout << "View Matrix:" << std::endl;
-    for (int i = 0; i < 4; ++i) {
-      std::cout << "[ ";
-      for (int j = 0; j < 4; ++j) {
-        std::cout << m[j][i];
-        if (j < 3)
-          std::cout << ", ";
-      }
-      std::cout << " ]" << std::endl;
-    }
-    std::cout << std::endl;
-  }
+  void UpdateCameraUniforms();
 
 private:
   VulkanContext &_vulkanContext;
@@ -51,21 +40,21 @@ private:
   std::unique_ptr<GaussianBase> _gaussianData;
   ComputePipeline _computePipeline;
 
-  VkBuffer _xyzBuffer = VK_NULL_HANDLE;
-  VkBuffer _scaleBuffer = VK_NULL_HANDLE;
-  VkBuffer _rotationBuffer = VK_NULL_HANDLE;
-  VkBuffer _opacityBuffer = VK_NULL_HANDLE;
-  VkBuffer _shBuffer = VK_NULL_HANDLE;
-  VkBuffer _viewProjectionBuffer = VK_NULL_HANDLE;
-
   void CreateGaussianBuffers();
+  void CreatePipelineStorageBuffers();
   template <typename T>
   void CreateAndUploadBuffer(VkBuffer &buffer, const void *data,
                              std::string type, int offset = 1);
 
-  void createUniformBuffer();
-
+  template <typename T>
+  void CreateWriteBuffers(VkBuffer &buffer, std::string type, int offset = 1);
+  void CreateUniformBuffer();
+  GaussianBuffers _buffers;
   std::unique_ptr<Camera> _camera;
+  int _shDegree;
+  int _nGauss;
+
+  void *_cameraUniformMapped = nullptr;
 };
 
 template <typename T>
@@ -101,4 +90,18 @@ GaussianRenderer::CreateAndUploadBuffer(VkBuffer &buffer, const void *data,
   _bufferManager.DestroyBuffer(device, stagingBuffer);
 
   std::cout << " buffer created!" << std::endl;
+}
+
+template <typename T>
+inline void GaussianRenderer::CreateWriteBuffers(VkBuffer &buffer,
+                                                 std::string type, int offset) {
+  VkDeviceSize bufferSize = sizeof(T) * _nGauss;
+  std::cout << " Creating " << type << " buffer : " << bufferSize << " bytes "
+            << std::endl;
+  VkPhysicalDevice physicalDevice = _vulkanContext.GetPhysicalDevice();
+  VkDevice device = _vulkanContext.GetLogicalDevice();
+
+  buffer = _bufferManager.CreateBuffer(device, physicalDevice, bufferSize,
+                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 }
