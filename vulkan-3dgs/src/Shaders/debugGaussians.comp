@@ -41,39 +41,27 @@ layout(binding = 6) uniform CameraUniforms {
 } camera;
 
 void main() {
-     ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
     if (coords.x >= imageSize(outputImage).x || coords.y >= imageSize(outputImage).y) return;
     
     vec2 pixelPos = vec2(coords);
     
-    // Look for Gaussians that should be near this pixel
-    for (int i = 0; i < min(100000, int(radii.length())); i++) {
-        vec2 gaussianScreenPos = pointsXY[i];
-        float distanceToPixel = length(pixelPos - gaussianScreenPos);
+    // Find FIRST Gaussian that covers this pixel
+    for (int i = 0; i < min(10000, int(radii.length())); i++) {
+        if (radii[i] <= 0) continue;  // Skip culled Gaussians
         
-        // If Gaussian is close to this pixel (within reasonable range)
-        if (distanceToPixel <= 50.0) {  // Check nearby Gaussians
-            
-            if (radii[i] == 1) {
-                // Found nearby Gaussian that failed frustum
-                imageStore(outputImage, coords, vec4(1.0, 0.0, 0.0, 1.0));  // RED
-                return;
-            }
-            
-            if (radii[i] == 2) {
-                // Found nearby Gaussian that passed frustum
-                imageStore(outputImage, coords, vec4(0.0, 1.0, 0.0, 1.0));  // GREEN
-                return;
-            }
-            
-            if (radii[i] > 2) {
-                // Found nearby Gaussian with actual radius
-                imageStore(outputImage, coords, vec4(0.0, 0.0, 1.0, 1.0));  // BLUE
-                return;
-            }
+        vec2 gaussianPos = pointsXY[i];
+        float distance = length(pixelPos - gaussianPos);
+        
+
+        if (distance <= float(radii[i])) {
+            // Found one! Show its color and stop
+            vec3 color = vec3(rgb[i * 3 + 0], rgb[i * 3 + 1], rgb[i * 3 + 2]);
+            imageStore(outputImage, coords, vec4(color, 1.0));
+            return;
         }
     }
     
-    // No nearby Gaussians found
-    imageStore(outputImage, coords, vec4(0.1, 0.1, 0.1, 1.0));  // Dark gray
+    // No Gaussian found - black background
+    imageStore(outputImage, coords, vec4(0.0, 0.0, 0.0, 1.0));
 }

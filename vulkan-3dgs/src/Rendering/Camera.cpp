@@ -87,7 +87,7 @@ CameraUniforms Camera::getUniforms() {
 
   _uniforms.camPos = _pos;
   _uniforms.viewMatrix = GetViewMatrix();
-  _uniforms.projMatrix = GetProjectionMatrix() * _uniforms.viewMatrix;
+  _uniforms.projMatrix = GetProjectionMatrix();
 
   return _uniforms;
 }

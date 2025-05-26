@@ -8,7 +8,7 @@
 class WindowManager {
 
 public:
-  WindowManager(const std::string wName, const int w = 800, const int h = 600)
+  WindowManager(const std::string wName, const int w = 1600, const int h = 1200)
       : _wName(wName), _w(w), _h(h){};
 
   void InitWindow();

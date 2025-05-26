@@ -36,7 +36,8 @@ void GaussianRenderer::Render() { _computePipeline.RenderFrame(); }
 
 void GaussianRenderer::InitializeCamera(float windowWidth, float windowHeight) {
   float aspectRatio = windowWidth / windowHeight;
-  _camera = std::make_unique<Camera>(45.0f, aspectRatio, 0.1f, 1000.0f);
+  _camera = std::make_unique<Camera>(windowWidth, windowHeight, 45.0f,
+                                     aspectRatio, 0.1f, 1000.0f);
 
   _camera->SetMovementSpeed(10.0f);
   _camera->SetMouseSensitivity(0.1f);
@@ -128,10 +129,29 @@ void GaussianRenderer::UpdateCameraUniforms() {
   CameraUniforms uniforms = _camera->getUniforms();
   uniforms.shDegree = _shDegree;
 
-  // Copy to persistently mapped memory
+  CameraUniforms *gpuData = (CameraUniforms *)_cameraUniformMapped;
+  std::cout << "\n=== GPU Memory BEFORE Update ===" << std::endl;
+  std::cout << "GPU imageWidth: " << gpuData->imageWidth << std::endl;
+  std::cout << "GPU imageHeight: " << gpuData->imageHeight << std::endl;
+  std::cout << "GPU projMatrix[0][0]: " << gpuData->projMatrix[0][0]
+            << std::endl;
+  std::cout << "GPU camPos: " << gpuData->camPos.x << ", " << gpuData->camPos.y
+            << ", " << gpuData->camPos.z << std::endl;
+
+  // Write to GPU
   memcpy(_cameraUniformMapped, &uniforms, sizeof(uniforms));
 
-  std::cout << "Updated camera uniforms" << std::endl;
+  //  DEBUG: Read GPU memory AFTER writing
+  std::cout << "\n=== GPU Memory AFTER Update ===" << std::endl;
+  std::cout << "GPU imageWidth: " << gpuData->imageWidth << std::endl;
+  std::cout << "GPU imageHeight: " << gpuData->imageHeight << std::endl;
+  std::cout << "GPU projMatrix[0][0]: " << gpuData->projMatrix[0][0]
+            << std::endl;
+  std::cout << "GPU camPos: " << gpuData->camPos.x << ", " << gpuData->camPos.y
+            << ", " << gpuData->camPos.z << std::endl;
+
+  std::cout << "Struct size: " << sizeof(CameraUniforms) << " bytes\n"
+            << std::endl;
 }
 
 void GaussianRenderer::CreateUniformBuffer() {

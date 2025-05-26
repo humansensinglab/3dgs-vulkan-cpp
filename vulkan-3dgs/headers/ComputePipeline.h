@@ -1,12 +1,13 @@
 #pragma once
 
+#include "Camera.h"
 #include "VulkanContext.h"
 #include "glm/glm.hpp"
 #include "utils.h"
 #include <iostream>
 #include <map>
 
-constexpr int frames_in_flight = 1;
+constexpr int frames_in_flight = 2;
 
 struct DescriptorBinding {
   uint32_t binding;

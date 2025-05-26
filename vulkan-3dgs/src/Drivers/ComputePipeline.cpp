@@ -533,7 +533,7 @@ void ComputePipeline::BindBufferToDescriptor(const PipelineType pType,
   bufferInfo.buffer = buffer;
   bufferInfo.offset = 0;
   bufferInfo.range = (descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-                         ? 2 * sizeof(glm::mat4)
+                         ? sizeof(CameraUniforms)
                          : VK_WHOLE_SIZE;
 
   VkWriteDescriptorSet descriptorWrite = {};

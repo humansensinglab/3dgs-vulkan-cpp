@@ -116,7 +116,7 @@ bool inFrustum(int idx, out vec3 pView) {
     if (pView.z <= 0.01) return false;
     
     // Frustum culling (simplified)
-    vec4 pClip = camera.projMatrix * vec4(pView, 1.0);
+    vec4 pClip = camera.projMatrix * camera.viewMatrix * vec4(pView, 1.0);
     return abs(pClip.x) <= pClip.w && abs(pClip.y) <= pClip.w;
 }
 
@@ -306,29 +306,7 @@ void computeCov3D(int idx, float scaleModifier, out float cov3D_out[6]) {
 }
 
 void main() {
-   
    uint idx = gl_GlobalInvocationID.x;
-    if (idx >= positions.length()) return;
-    
-    // Initialize outputs
-    radii[idx] = 0;
-    
-    // Test: Skip frustum culling entirely
-    vec3 pView;
-    bool passedFrustum = inFrustum(int(idx), pView);
-    
-    if (!passedFrustum) {
-        radii[idx] = 1;  // Mark as "failed frustum"
-        return;
-    }
-    
-    // If we get here, it passed frustum
-    radii[idx] = 2;  // Mark as "passed frustum"
-    return;  // Stop here for testing
-
-   
-   
-   /*uint idx = gl_GlobalInvocationID.x;
     
     // Early exit if beyond array bounds
     if (idx >= positions.length()) return;
@@ -341,12 +319,12 @@ void main() {
     tilesTouched[idx] = 0;
     
     // Frustum culling
-    vec3 pView;
-    if (!inFrustum(int(idx), pView)) return;
+    //vec3 pView;
+    //if (!inFrustum(int(idx), pView)) return;
     
     // Transform to clip space
     vec3 pOrig = positions[idx];
-    vec4 pHom = transformPoint4x4(pOrig, camera.projMatrix);
+    vec4 pHom = transformPoint4x4(pOrig, camera.projMatrix * camera.viewMatrix);
     float pW = 1.0 / (pHom.w + 0.0000001);
     vec3 pProj = pHom.xyz * pW;
     
@@ -390,8 +368,8 @@ void main() {
     // Compute color from spherical harmonics
     vec3 color = computeColorFromSH(int(idx));
     
-    depth[idx] = pView.z;
-    radii[idx] = int(myRadius);
+    //depth[idx] = pView.z;
+    radii[idx] = int(4.0);
     pointsXY[idx] = pointImage;
     conicOpacity[idx] = vec4(conic, opacities[idx]);
     tilesTouched[idx] = uint((rectMax.y - rectMin.y) * (rectMax.x - rectMin.x));
@@ -399,5 +377,5 @@ void main() {
     // Store RGB
     rgb[idx * 3 + 0] = color.r;
     rgb[idx * 3 + 1] = color.g;
-    rgb[idx * 3 + 2] = color.b;*/
+    rgb[idx * 3 + 2] = color.b;
 }
