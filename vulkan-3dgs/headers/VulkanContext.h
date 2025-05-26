@@ -35,6 +35,8 @@ public:
 
   ~VulkanContext();
 
+  GLFWwindow *getWindow() const { return _vcxWindow; }
+
 private:
   GLFWwindow *_vcxWindow;
   VkInstance _vcxInstance;

@@ -16,5 +16,11 @@ void main() {
         return;
     }
     
-    imageStore(outputImage, pixelCoords, vec4(1.0, 0.0, 0.0, 1.0));
+    vec3 firstPos = positions[pixelCoords.x + pixelCoords.y *  imageDims.x ];
+    
+    // Use position coordinates as color (normalize to 0-1 range)
+    vec3 color = abs(firstPos)/100;  // Divide by 10 to get reasonable range
+    
+    imageStore(outputImage, pixelCoords, vec4(0.0, 0.0, color.z, 1.0));
+
 }

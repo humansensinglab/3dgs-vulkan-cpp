@@ -422,11 +422,10 @@ void ComputePipeline::UpdateAllDescriptorSets(const PipelineType pType) {
     for (uint32_t i = 0; i < swapchainImages.size(); i++) {
       if (descriptor.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
         BindImageToDescriptor(pType, i, swapchainImages[i].imageView);
-      else if (descriptor.type == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
-        std::cout << "Not implemented yet" << std::endl;
       else {
         BindBufferToDescriptor(pType, descriptor.binding, i,
-                               GetBufferByName(descriptor.name));
+                               GetBufferByName(descriptor.name),
+                               descriptor.type);
       }
     }
   }
@@ -443,6 +442,8 @@ VkBuffer ComputePipeline::GetBufferByName(const std::string &bufferName) {
     return _gaussianBuffers.opacity;
   if (bufferName == "sh")
     return _gaussianBuffers.sh;
+  if (bufferName == "viewProjection")
+    return _gaussianBuffers.viewProjection;
 
   throw std::runtime_error("Unknown buffer name: " + bufferName);
 }
@@ -485,23 +486,27 @@ void ComputePipeline::BindImageToDescriptor(const PipelineType pType,
 
 void ComputePipeline::BindBufferToDescriptor(const PipelineType pType,
                                              uint32_t bindingIndex, uint32_t i,
-                                             VkBuffer buffer) {
+                                             VkBuffer buffer,
+                                             VkDescriptorType descriptorType) {
   VkDescriptorBufferInfo bufferInfo = {};
   bufferInfo.buffer = buffer;
   bufferInfo.offset = 0;
-  bufferInfo.range = VK_WHOLE_SIZE;
+  bufferInfo.range = (descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
+                         ? 2 * sizeof(glm::mat4)
+                         : VK_WHOLE_SIZE;
 
   VkWriteDescriptorSet descriptorWrite = {};
   descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
   descriptorWrite.dstSet = _descriptorSets[pType][i]; // Specific descriptor set
   descriptorWrite.dstBinding = bindingIndex;
   descriptorWrite.dstArrayElement = 0;
-  descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+  descriptorWrite.descriptorType = descriptorType;
   descriptorWrite.descriptorCount = 1;
   descriptorWrite.pBufferInfo = &bufferInfo;
 
   vkUpdateDescriptorSets(_vkContext.GetLogicalDevice(), 1, &descriptorWrite, 0,
                          nullptr);
 
-  std::cout << "Descriptor set " << i << "  Buffer " << i << std::endl;
+  std::cout << "Descriptor set " << i << "  Buffer " << i << "type"
+            << static_cast<int>(descriptorType) << std::endl;
 }

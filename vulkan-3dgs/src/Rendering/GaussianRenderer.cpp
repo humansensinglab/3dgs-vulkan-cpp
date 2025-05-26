@@ -18,14 +18,78 @@ void GaussianRenderer::LoadGaussianData(
   _gaussianData = std::move(gaussianData);
 
   CreateGaussianBuffers();
-
-  _computePipeline.Initialize(
-      {_xyzBuffer, _scaleBuffer, _rotationBuffer, _opacityBuffer, _shBuffer});
+  createUniformBuffer();
+  _computePipeline.Initialize({_xyzBuffer, _scaleBuffer, _rotationBuffer,
+                               _opacityBuffer, _shBuffer,
+                               _viewProjectionBuffer});
 
   std::cout << " Gaussian data loaded and GPU resources created !" << std::endl;
 }
 
 void GaussianRenderer::render() { _computePipeline.RenderFrame(); }
+
+void GaussianRenderer::InitializeCamera(float windowWidth, float windowHeight) {
+  float aspectRatio = windowWidth / windowHeight;
+  _camera = std::make_unique<Camera>(45.0f, aspectRatio, 0.1f, 1000.0f);
+
+  _camera->SetMovementSpeed(10.0f);
+  _camera->SetMouseSensitivity(0.1f);
+
+  glfwSetWindowUserPointer(_vulkanContext.getWindow(), this);
+  // Set up mouse callback
+  glfwSetCursorPosCallback(_vulkanContext.getWindow(), mouse_callback);
+
+  // Capture mouse cursor
+  glfwSetInputMode(_vulkanContext.getWindow(), GLFW_CURSOR,
+                   GLFW_CURSOR_DISABLED);
+  std::cout << "Camera initialized with aspect ratio: " << aspectRatio
+            << std::endl;
+}
+
+void GaussianRenderer::mouse_callback(GLFWwindow *window, double xpos,
+                                      double ypos) {
+  GaussianRenderer *renderer =
+      static_cast<GaussianRenderer *>(glfwGetWindowUserPointer(window));
+  if (renderer && renderer->_camera) {
+    static bool firstMouse = true;
+    static float lastX, lastY;
+
+    if (firstMouse) {
+      lastX = static_cast<float>(xpos);
+      lastY = static_cast<float>(ypos);
+      firstMouse = false;
+      return;
+    }
+
+    float deltaX = static_cast<float>(xpos) - lastX;
+    float deltaY = lastY - static_cast<float>(ypos);
+
+    lastX = static_cast<float>(xpos);
+    lastY = static_cast<float>(ypos);
+
+    renderer->_camera->ProcessMouseMovement(deltaX, deltaY);
+  }
+}
+
+void GaussianRenderer::processInput(float deltaTime) {
+  GLFWwindow *window = _vulkanContext.getWindow();
+  if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    _camera->ProcessKeyboard(CameraMovement::FORWARD, deltaTime);
+  if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    _camera->ProcessKeyboard(CameraMovement::BACKWARD, deltaTime);
+  if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+    _camera->ProcessKeyboard(CameraMovement::LEFT, deltaTime);
+  if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    _camera->ProcessKeyboard(CameraMovement::RIGHT, deltaTime);
+  if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+    _camera->ProcessKeyboard(CameraMovement::UP, deltaTime);
+  if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+    _camera->ProcessKeyboard(CameraMovement::DOWN, deltaTime);
+
+  // ESC to exit
+  if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+    glfwSetWindowShouldClose(window, true);
+}
 
 void GaussianRenderer::CreateGaussianBuffers() {
   std::cout << "\n--- Creating Gaussian GPU Buffers and uploading to GPU "
@@ -43,4 +107,24 @@ void GaussianRenderer::CreateGaussianBuffers() {
   CreateAndUploadBuffer<float>(
       _shBuffer, _gaussianData->GetSHData(), "_SH",
       3 * (_gaussianData->GetSHCoefficientsPerChannel()));
+}
+
+void GaussianRenderer::createUniformBuffer() {
+
+  VkDevice device = _vulkanContext.GetLogicalDevice();
+  VkPhysicalDevice physicalDevice = _vulkanContext.GetPhysicalDevice();
+
+  CameraUniforms camUniforms = _camera->getViewProjection();
+  VkDeviceSize bufferSize = sizeof(camUniforms);
+  std::cout << " Creating uniform buffer : " << bufferSize << " bytes "
+            << std::endl;
+
+  _viewProjectionBuffer =
+      _bufferManager.CreateUniformBuffer(device, physicalDevice, bufferSize);
+
+  void *mappedMemory;
+  VkDeviceMemory mem = _bufferManager.GetBufferMemory(_viewProjectionBuffer);
+  vkMapMemory(device, mem, 0, bufferSize, 0, &mappedMemory);
+  memcpy(mappedMemory, &camUniforms, bufferSize);
+  vkUnmapMemory(device, mem);
 }

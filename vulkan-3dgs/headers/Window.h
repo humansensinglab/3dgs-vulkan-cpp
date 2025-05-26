@@ -1,6 +1,7 @@
 #pragma once
 
 #define GLFW_INCLUDE_VULKAN
+#include "GaussianRenderer.h"
 #include <GLFW/glfw3.h>
 #include <iostream>
 

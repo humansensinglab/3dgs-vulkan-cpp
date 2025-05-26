@@ -12,6 +12,7 @@ struct GaussianBuffers {
   VkBuffer rotations;
   VkBuffer opacity;
   VkBuffer sh;
+  VkBuffer viewProjection;
 };
 
 const std::vector<const char *> deviceExtensions = {

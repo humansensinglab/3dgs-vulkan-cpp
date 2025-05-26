@@ -20,6 +20,10 @@ int main() {
   vkContext.InitContext();
 
   GaussianRenderer renderPipeline(vkContext);
+  int width, height;
+  glfwGetFramebufferSize(windowManager.getWindow(), &width, &height);
+  renderPipeline.InitializeCamera(static_cast<float>(width),
+                                  static_cast<float>(height));
   renderPipeline.LoadGaussianData(std::move(gaussianData));
 
   auto lastTime = std::chrono::high_resolution_clock::now();
@@ -29,12 +33,11 @@ int main() {
     double deltaTime =
         std::chrono::duration<double>(currentTime - lastTime).count();
     double fps = 1.0 / deltaTime;
-
-    std::cout << "FPS: " << fps << std::endl;
-
+    // std::cout << "FPS: " << fps << std::endl;
     lastTime = currentTime;
 
     glfwPollEvents();
+    renderPipeline.processInput(static_cast<float>(deltaTime)); // Add this line
     renderPipeline.render();
   }
 

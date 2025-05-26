@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VulkanContext.h"
+#include "glm/glm.hpp"
 #include "utils.h"
 #include <iostream>
 #include <map>
@@ -30,6 +31,10 @@ public:
   void Initialize(GaussianBuffers gaussianBuffer);
   void RenderFrame();
   void CleanUp();
+
+  void setUniformBuffer(VkBuffer viewProjection) {
+    _gaussianBuffers.viewProjection = viewProjection;
+  }
 
 private:
   VulkanContext &_vkContext;
@@ -65,15 +70,27 @@ private:
                              VkImageView view);
 
   void BindBufferToDescriptor(const PipelineType pType, uint32_t bindingIndex,
-                              uint32_t i, VkBuffer buffer);
+                              uint32_t i, VkBuffer buffer,
+                              VkDescriptorType descriptorType);
   VkBuffer GetBufferByName(const std::string &bufferName);
+
   // repeated layouts:: we can share them. TODO
   std::map<PipelineType, std::vector<DescriptorBinding>> SHADER_LAYOUTS = {
       {PipelineType::DEBUG_RED_FILL,
        {{0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1,
          ""},
         {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "xyz"}}},
+         "xyz"},
+        {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "scales"},
+        {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "rotations"},
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "opacity"},
+        {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "sh"},
+        {6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "viewProjection"}}},
 
       {PipelineType::CULLING,
        {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1},
