@@ -24,7 +24,7 @@ Cross-platform 3D Gaussian Splatting implementation using pure Vulkan compute sh
 - **Alpha blending** - Proper transparency 
 - **Performance optimization** - Target 60+ FPS full pipeline
 
-![Current State](media/preprocess.gif)
+![Current State](Media/preprocess.gif)
 
 *Real-time preprocessing of 1.5M Gaussians with camera movement*
 
