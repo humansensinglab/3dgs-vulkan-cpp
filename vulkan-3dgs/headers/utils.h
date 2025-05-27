@@ -11,6 +11,8 @@ struct StagingRead {
   void *mem;
 };
 
+constexpr int AVG_GAUSS_TILE = 4;
+
 struct GaussianBuffers {
   VkBuffer xyz;
   VkBuffer scales;
@@ -25,7 +27,13 @@ struct GaussianBuffers {
   VkBuffer points2d;
   VkBuffer tilesTouched;
   VkBuffer tilesTouchedPrefixSum;
+  VkBuffer boundingBox;
   StagingRead numRendered;
+  VkBuffer keysUnsorted;
+  VkBuffer valuesUnsorted;
+  VkBuffer keysSorted;
+  VkBuffer valuesSorted;
+  VkBuffer ranges;
 };
 
 const std::vector<const char *> deviceExtensions = {

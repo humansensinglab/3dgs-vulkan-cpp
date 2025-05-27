@@ -22,6 +22,11 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   SetupDescriptorSet(PipelineType::NEAREST);
   UpdateAllDescriptorSets(PipelineType::NEAREST);
 
+  CreateDescriptorSetLayout(PipelineType::ASSIGN_TILE_IDS);
+  // CreateComputePipeline("src/Shaders/nearest.spv", PipelineType::NEAREST);
+  SetupDescriptorSet(PipelineType::ASSIGN_TILE_IDS);
+  UpdateAllDescriptorSets(PipelineType::ASSIGN_TILE_IDS);
+
   CreateSynchronization();
 
   // RecordAllCommandBuffers();
@@ -491,8 +496,10 @@ void ComputePipeline::RenderFrame() {
                   &_preprocessFences[_currentFrame], VK_TRUE, UINT64_MAX);
 
   uint32_t totalRendered = ReadFinalPrefixSum();
-  std::cout << totalRendered << std::endl;
 
+  if (totalRendered > _sizeBufferMax) {
+    resizeBuffers(totalRendered * 1.25);
+  }
   vkResetFences(_vkContext.GetLogicalDevice(), 1,
                 &_renderFences[_currentFrame]);
   // another command buffer?
@@ -598,6 +605,18 @@ VkBuffer ComputePipeline::GetBufferByName(const std::string &bufferName) {
     return _gaussianBuffers.tilesTouched;
   if (bufferName == "tilesTouchedPrefixSum")
     return _gaussianBuffers.tilesTouchedPrefixSum;
+  if (bufferName == "boundingBox")
+    return _gaussianBuffers.boundingBox;
+  if (bufferName == "keysUnsorted")
+    return _gaussianBuffers.keysUnsorted;
+  if (bufferName == "valuesUnsorted")
+    return _gaussianBuffers.valuesUnsorted;
+  if (bufferName == "keysSorted")
+    return _gaussianBuffers.keysSorted;
+  if (bufferName == "valuesSsorted")
+    return _gaussianBuffers.valuesSorted;
+  if (bufferName == "ranges")
+    return _gaussianBuffers.ranges;
 
   throw std::runtime_error("Unknown buffer name: " + bufferName);
 }
@@ -626,6 +645,37 @@ void ComputePipeline::submitCommandBuffer(uint32_t imageIndex, bool waitSem) {
                     fence) != VK_SUCCESS) {        // Fence to signal when done
     throw std::runtime_error("Failed to submit compute command buffer!");
   }
+}
+
+void ComputePipeline::resizeBuffers(uint32_t size) {
+  // We could implement memory Pool?
+  VkPhysicalDevice physicalDevice = _vkContext.GetPhysicalDevice();
+  VkDevice device = _vkContext.GetLogicalDevice();
+
+  _buffManager->DestroyBuffer(device, _gaussianBuffers.valuesSorted);
+  _buffManager->DestroyBuffer(device, _gaussianBuffers.valuesUnsorted);
+  _buffManager->DestroyBuffer(device, _gaussianBuffers.keysSorted);
+  _buffManager->DestroyBuffer(device, _gaussianBuffers.keysUnsorted);
+
+  VkDeviceSize bufferSizeKey = sizeof(int64_t) * size;
+  VkDeviceSize bufferSizeValue = sizeof(int32_t) * size;
+  VkBufferUsageFlags usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+
+  _gaussianBuffers.keysUnsorted =
+      _buffManager->CreateBuffer(device, physicalDevice, bufferSizeKey, usage,
+                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  _gaussianBuffers.keysSorted =
+      _buffManager->CreateBuffer(device, physicalDevice, bufferSizeKey, usage,
+                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  _gaussianBuffers.valuesSorted =
+      _buffManager->CreateBuffer(device, physicalDevice, bufferSizeValue, usage,
+                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  _gaussianBuffers.valuesUnsorted =
+      _buffManager->CreateBuffer(device, physicalDevice, bufferSizeValue, usage,
+                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  _sizeBufferMax = size;
+  UpdateAllDescriptorSets(PipelineType::ASSIGN_TILE_IDS);
+  std::cout << "resize Buffer" << std::endl;
 }
 
 void ComputePipeline::RecordAllCommandBuffers() {}

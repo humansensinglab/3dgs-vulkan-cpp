@@ -99,7 +99,7 @@ template <typename T>
 inline void GaussianRenderer::CreateWriteBuffers(VkBuffer &buffer,
                                                  std::string type, int offset,
                                                  int dst) {
-  VkDeviceSize bufferSize = sizeof(T) * _nGauss;
+  VkDeviceSize bufferSize = sizeof(T) * _nGauss * offset;
   std::cout << " Creating " << type << " buffer : " << bufferSize << " bytes "
             << std::endl;
   VkPhysicalDevice physicalDevice = _vulkanContext.GetPhysicalDevice();

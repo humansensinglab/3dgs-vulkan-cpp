@@ -31,6 +31,7 @@ void GaussianRenderer::CreateBuffers() {
   CreateUniformBuffer();
   CreatePipelineStorageBuffers();
   CreateCopyStagingBuffer();
+  _computePipeline.setBufferManager(&_bufferManager);
 }
 
 void GaussianRenderer::Render() { _computePipeline.RenderFrame(); }
@@ -126,6 +127,16 @@ void GaussianRenderer::CreatePipelineStorageBuffers() {
   CreateWriteBuffers<int>(_buffers.tilesTouched, "tilesTouched", 1, true);
   CreateWriteBuffers<int>(_buffers.tilesTouchedPrefixSum,
                           "tilesTouchedPrefixSum", 1, true);
+  CreateWriteBuffers<glm::vec4>(_buffers.boundingBox, "boundingBox");
+  CreateWriteBuffers<uint64_t>(_buffers.keysUnsorted, "keysUnsorted",
+                               AVG_GAUSS_TILE);
+  CreateWriteBuffers<uint64_t>(_buffers.keysSorted, "keysSorted",
+                               AVG_GAUSS_TILE);
+  CreateWriteBuffers<uint32_t>(_buffers.valuesSorted, "valuesSorted",
+                               AVG_GAUSS_TILE);
+  CreateWriteBuffers<uint32_t>(_buffers.valuesUnsorted, "valuesUnsorted",
+                               AVG_GAUSS_TILE);
+  // ranges
 }
 
 void GaussianRenderer::UpdateCameraUniforms() {

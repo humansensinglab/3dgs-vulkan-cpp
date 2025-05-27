@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BufferManager.h"
 #include "Camera.h"
 #include "VulkanContext.h"
 #include "glm/glm.hpp"
@@ -24,6 +25,7 @@ enum class PipelineType {
   SPLATTING,
   PREPROCESS,
   PREFIXSUM,
+  ASSIGN_TILE_IDS,
   NEAREST
 };
 
@@ -35,7 +37,13 @@ public:
   void Initialize(GaussianBuffers gaussianBuffer);
   void RenderFrame();
   void CleanUp();
-  void setNumGaussians(int gauss) { _numGaussians = gauss; }
+  void setNumGaussians(int gauss) {
+    _numGaussians = gauss;
+    _sizeBufferMax = gauss * AVG_GAUSS_TILE;
+  }
+  void setBufferManager(BufferManager *bufferManager) {
+    _buffManager = bufferManager;
+  };
 
 private:
   VulkanContext &_vkContext;
@@ -79,6 +87,8 @@ private:
   VkBuffer GetBufferByName(const std::string &bufferName);
 
   void submitCommandBuffer(uint32_t imageIndex, bool waitSem = true);
+
+  void resizeBuffers(uint32_t size);
   // repeated layouts:: we can share them. TODO
   std::map<PipelineType, std::vector<DescriptorBinding>> SHADER_LAYOUTS = {
       {PipelineType::PREPROCESS,
@@ -134,13 +144,21 @@ private:
 
        }},
 
-      {PipelineType::SPLATTING,
-       {{0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1},
-        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1},
-        {2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT,
-         1}}}};
+      {PipelineType::ASSIGN_TILE_IDS,
+       {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "depths"},
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "radii"},
+        {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "boundingBox"},
+        {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "keysUnsorted"},
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "valuesUnsorted"}}}};
 
+  int _sizeBufferMax;
   GaussianBuffers _gaussianBuffers;
+  BufferManager *_buffManager;
   int _numGaussians;
 
   inline uint32_t ReadFinalPrefixSum() {
