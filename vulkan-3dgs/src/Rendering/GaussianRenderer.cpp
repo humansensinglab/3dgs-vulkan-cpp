@@ -174,7 +174,7 @@ void GaussianRenderer::CreateCopyStagingBuffer() {
   VkDevice device = _vulkanContext.GetLogicalDevice();
   VkPhysicalDevice physicalDevice = _vulkanContext.GetPhysicalDevice();
 
-  VkDeviceSize bufferSize = sizeof(int) * 10000;
+  VkDeviceSize bufferSize = sizeof(int);
 
   _buffers.numRendered.staging = _bufferManager.CreateBuffer(
       device, physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT,

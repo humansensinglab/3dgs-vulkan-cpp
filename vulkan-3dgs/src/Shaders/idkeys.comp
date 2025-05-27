@@ -1,0 +1,52 @@
+#version 450
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
+
+layout (std430, set = 0, binding = 0) readonly buffer TilesSum {
+    uint prefixSum[];
+};
+layout (std430, set = 0, binding = 1) readonly buffer Depths {
+    float depths[];
+};
+layout (std430, set = 0, binding = 2) readonly buffer Radii {
+    float radii[];  // w component contains the radius value
+};
+layout (std430, set = 0, binding = 3) readonly buffer BoundingBox {
+    uvec4 boundingBox[];  // x,y,z,w = min_x, min_y, max_x, max_y
+};
+layout (std430, set = 0, binding = 4) writeonly buffer OutKeys {
+    uint64_t keysUnsorted[];
+};
+layout (std430, set = 0, binding = 5) writeonly buffer OutPayloads {
+    uint valuesUnsorted[];
+};
+
+layout( push_constant ) uniform Constants
+{
+    uint tileX;
+};
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= prefixSum.length()) {
+        return;
+    }
+    if (radii[index] == 0) {
+        return;
+    }
+    
+    uvec4 aabb = boundingBox[index];
+    uint ind = index == 0 ? 0 : prefixSum[index - 1];
+    
+    for (uint i = aabb.x; i < aabb.z; i++) {
+        for (uint j = aabb.y; j < aabb.w; j++) {
+            uint64_t tileIndex = i + j * tileX;
+            uint depthBits = floatBitsToUint(depths[index]);
+            uint64_t k = (tileIndex << 32) | uint64_t(depthBits);
+            keysUnsorted[ind] = k;
+            valuesUnsorted[ind] = index;
+            ind++;
+        }
+    }
+}

@@ -85,6 +85,10 @@ layout(binding = 12) writeonly buffer OutputTilesTouched {
     uint tilesTouched[];
 };
 
+layout(binding = 13) writeonly buffer BoundingBox {
+    vec4 bbox[];
+};
+
 
 // Helper functions
 int getSHCoeffCount(int degree) {
@@ -365,14 +369,18 @@ void main() {
         min(gridX, max(0, int((pointImage.x + myRadius + BLOCK_X - 1) / BLOCK_X))),
         min(gridY, max(0, int((pointImage.y + myRadius + BLOCK_Y - 1) / BLOCK_Y)))
     );
+
+    bbox[idx] = vec4(rectMin.x, rectMin.y, rectMax.x, rectMax.y);
+
     
     if ((rectMax.x - rectMin.x) * (rectMax.y - rectMin.y) == 0) return;
+
     
     // Compute color from spherical harmonics
     vec3 color = computeColorFromSH(int(idx));
     
-    //depth[idx] = pView.z;
-    radii[idx] = int(4.0);
+    depth[idx] = pView.z;
+    radii[idx] = int(myRadius);
     pointsXY[idx] = pointImage;
     conicOpacity[idx] = vec4(conic, opacities[idx]);
     tilesTouched[idx] = uint((rectMax.y - rectMin.y) * (rectMax.x - rectMin.x));
