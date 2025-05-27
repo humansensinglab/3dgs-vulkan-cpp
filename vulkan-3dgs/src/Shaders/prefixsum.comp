@@ -1,0 +1,42 @@
+#version 450
+
+layout(std430, set = 0, binding = 0) buffer BufferA {
+    uint buffer_a[];
+};
+
+layout(std430, set = 0, binding = 1) buffer BufferB {
+    uint buffer_b[];
+};
+
+layout(push_constant) uniform Constants {
+    uint step;
+    uint numElements;
+    uint readFromA;  // 1 = read from A, 0 = read from B
+};
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+void main() {
+    uint index = gl_GlobalInvocationID.x;
+    
+    if (index >= numElements) {
+        return;
+    }
+    
+    uint stride = 1u << step;
+    
+    uint value;
+    if (readFromA == 1) {
+        value = buffer_a[index];
+        if (index >= stride) {
+            value += buffer_a[index - stride];
+        }
+        buffer_b[index] = value;
+    } else {
+        value = buffer_b[index];
+        if (index >= stride) {
+            value += buffer_b[index - stride];
+        }
+        buffer_a[index] = value;
+    }
+}

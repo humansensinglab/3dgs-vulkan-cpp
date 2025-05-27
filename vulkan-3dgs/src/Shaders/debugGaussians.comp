@@ -41,13 +41,14 @@ layout(binding = 6) uniform CameraUniforms {
 } camera;
 
 void main() {
+
     ivec2 coords = ivec2(gl_GlobalInvocationID.xy);
     if (coords.x >= imageSize(outputImage).x || coords.y >= imageSize(outputImage).y) return;
     
     vec2 pixelPos = vec2(coords);
     
     // Find FIRST Gaussian that covers this pixel
-    for (int i = 0; i < min(10000, int(radii.length())); i++) {
+    for (int i = 0; i < min(100, int(radii.length())); i++) {
         if (radii[i] <= 0) continue;  // Skip culled Gaussians
         
         vec2 gaussianPos = pointsXY[i];

@@ -3,11 +3,11 @@
 #include "utils.h"
 #include <iostream>
 
-#ifdef NDEBUG
-const bool enableValidationLayers = false;
-#else
+// #ifdef NDEBUG
+// const bool enableValidationLayers = false;
+// #else
 const bool enableValidationLayers = true;
-#endif
+// #endif
 
 class VulkanContext {
 public:

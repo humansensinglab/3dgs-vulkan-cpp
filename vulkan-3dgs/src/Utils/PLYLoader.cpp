@@ -94,14 +94,20 @@ bool PLYLoader::ReadVertexData(std::ifstream &file, GaussianBase &data) {
       data._shCoefficients[sh_offset + 3 + j] = rest_coeffs_vector[j];
     }
 
-    // Opacity
-    file.read(reinterpret_cast<char *>(&data._opacities[i]), sizeof(float));
+    // Read raw values, apply activations, and store directly
+    float rawOpacity;
+    glm::vec3 rawScales;
+    glm::vec4 rawRotation;
 
-    // Scales
-    file.read(reinterpret_cast<char *>(&data._scales[i]), sizeof(glm::vec3));
+    file.read(reinterpret_cast<char *>(&rawOpacity), sizeof(float));
+    file.read(reinterpret_cast<char *>(&rawScales), sizeof(glm::vec3));
+    file.read(reinterpret_cast<char *>(&rawRotation), sizeof(glm::vec4));
 
-    // Rotations
-    file.read(reinterpret_cast<char *>(&data._rotations[i]), sizeof(glm::vec4));
+    // Apply activations and store with original names
+    data._opacities[i] = 1.0f / (1.0f + std::exp(-rawOpacity)); // Sigmoid
+    data._scales[i] = glm::vec3(std::exp(rawScales.x),          // Exp
+                                std::exp(rawScales.y), std::exp(rawScales.z));
+    data._rotations[i] = glm::normalize(rawRotation);
   }
 
   return file.good() || file.eof();

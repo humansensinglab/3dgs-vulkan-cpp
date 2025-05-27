@@ -6,6 +6,11 @@
 #include <set>
 #include <vector>
 
+struct StagingRead {
+  VkBuffer staging;
+  void *mem;
+};
+
 struct GaussianBuffers {
   VkBuffer xyz;
   VkBuffer scales;
@@ -19,6 +24,8 @@ struct GaussianBuffers {
   VkBuffer conicOpacity;
   VkBuffer points2d;
   VkBuffer tilesTouched;
+  VkBuffer tilesTouchedPrefixSum;
+  StagingRead numRendered;
 };
 
 const std::vector<const char *> deviceExtensions = {

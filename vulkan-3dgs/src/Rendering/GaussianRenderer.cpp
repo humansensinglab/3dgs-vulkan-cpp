@@ -30,6 +30,7 @@ void GaussianRenderer::CreateBuffers() {
   CreateGaussianBuffers();
   CreateUniformBuffer();
   CreatePipelineStorageBuffers();
+  CreateCopyStagingBuffer();
 }
 
 void GaussianRenderer::Render() { _computePipeline.RenderFrame(); }
@@ -122,7 +123,9 @@ void GaussianRenderer::CreatePipelineStorageBuffers() {
   CreateWriteBuffers<float>(_buffers.color, "color");
   CreateWriteBuffers<glm::vec4>(_buffers.conicOpacity, "conicOpacity");
   CreateWriteBuffers<glm::vec2>(_buffers.points2d, "points2d");
-  CreateWriteBuffers<int>(_buffers.tilesTouched, "tilesTouched");
+  CreateWriteBuffers<int>(_buffers.tilesTouched, "tilesTouched", 1, true);
+  CreateWriteBuffers<int>(_buffers.tilesTouchedPrefixSum,
+                          "tilesTouchedPrefixSum", 1, true);
 }
 
 void GaussianRenderer::UpdateCameraUniforms() {
@@ -130,28 +133,9 @@ void GaussianRenderer::UpdateCameraUniforms() {
   uniforms.shDegree = _shDegree;
 
   CameraUniforms *gpuData = (CameraUniforms *)_cameraUniformMapped;
-  std::cout << "\n=== GPU Memory BEFORE Update ===" << std::endl;
-  std::cout << "GPU imageWidth: " << gpuData->imageWidth << std::endl;
-  std::cout << "GPU imageHeight: " << gpuData->imageHeight << std::endl;
-  std::cout << "GPU projMatrix[0][0]: " << gpuData->projMatrix[0][0]
-            << std::endl;
-  std::cout << "GPU camPos: " << gpuData->camPos.x << ", " << gpuData->camPos.y
-            << ", " << gpuData->camPos.z << std::endl;
 
   // Write to GPU
   memcpy(_cameraUniformMapped, &uniforms, sizeof(uniforms));
-
-  //  DEBUG: Read GPU memory AFTER writing
-  std::cout << "\n=== GPU Memory AFTER Update ===" << std::endl;
-  std::cout << "GPU imageWidth: " << gpuData->imageWidth << std::endl;
-  std::cout << "GPU imageHeight: " << gpuData->imageHeight << std::endl;
-  std::cout << "GPU projMatrix[0][0]: " << gpuData->projMatrix[0][0]
-            << std::endl;
-  std::cout << "GPU camPos: " << gpuData->camPos.x << ", " << gpuData->camPos.y
-            << ", " << gpuData->camPos.z << std::endl;
-
-  std::cout << "Struct size: " << sizeof(CameraUniforms) << " bytes\n"
-            << std::endl;
 }
 
 void GaussianRenderer::CreateUniformBuffer() {
@@ -172,4 +156,21 @@ void GaussianRenderer::CreateUniformBuffer() {
   vkMapMemory(device, mem, 0, bufferSize, 0, &_cameraUniformMapped);
 
   UpdateCameraUniforms();
+}
+
+void GaussianRenderer::CreateCopyStagingBuffer() {
+
+  VkDevice device = _vulkanContext.GetLogicalDevice();
+  VkPhysicalDevice physicalDevice = _vulkanContext.GetPhysicalDevice();
+
+  VkDeviceSize bufferSize = sizeof(int) * 10000;
+
+  _buffers.numRendered.staging = _bufferManager.CreateBuffer(
+      device, physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+  vkMapMemory(device,
+              _bufferManager.GetBufferMemory(_buffers.numRendered.staging), 0,
+              bufferSize, 0, &_buffers.numRendered.mem);
 }

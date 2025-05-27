@@ -3,7 +3,7 @@
 Camera::Camera(int w, int h, float fov, float aspectRatio, float nearPlane,
                float farPlane)
     : _pos(glm::vec3(-0.53f, -0.25f, 33.74f)),
-      _front(glm::vec3(0.0f, 0.0f, -1.0f)),
+      _front(glm::vec3(0.0f, 0.0f, 1.0f)),
       _worldUp(glm::vec3(0.0f, 1.0f, 0.0f)), _yaw(-90.0f), _w(w),
       _h(h) // Start looking forward (negative Z)
       ,

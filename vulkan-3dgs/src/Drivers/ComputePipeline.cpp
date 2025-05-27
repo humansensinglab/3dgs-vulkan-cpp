@@ -12,6 +12,11 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   SetupDescriptorSet(PipelineType::PREPROCESS);
   UpdateAllDescriptorSets(PipelineType::PREPROCESS);
 
+  CreateDescriptorSetLayout(PipelineType::PREFIXSUM);
+  CreateComputePipeline("src/Shaders/sum.spv", PipelineType::PREFIXSUM, 3);
+  SetupDescriptorSet(PipelineType::PREFIXSUM);
+  UpdateAllDescriptorSets(PipelineType::PREFIXSUM);
+
   CreateDescriptorSetLayout(PipelineType::NEAREST);
   CreateComputePipeline("src/Shaders/nearest.spv", PipelineType::NEAREST);
   SetupDescriptorSet(PipelineType::NEAREST);
@@ -19,7 +24,7 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
 
   CreateSynchronization();
 
-  RecordAllCommandBuffers();
+  // RecordAllCommandBuffers();
   std::cout << "\n=== Compute Pipeline Initialization Complete ===\n"
             << std::endl;
 }
@@ -31,12 +36,19 @@ void ComputePipeline::CleanUp() {
 
   std::cout << "Cleaning up ComputePipeline..." << std::endl;
 
-  for (auto &fence : _fences) {
+  for (auto &fence : _renderFences) {
     if (fence != VK_NULL_HANDLE) {
       vkDestroyFence(_vkContext.GetLogicalDevice(), fence, nullptr);
     }
   }
-  _fences.clear();
+  _renderFences.clear();
+
+  for (auto &fence : _preprocessFences) {
+    if (fence != VK_NULL_HANDLE) {
+      vkDestroyFence(_vkContext.GetLogicalDevice(), fence, nullptr);
+    }
+  }
+  _preprocessFences.clear();
 
   for (auto &semaphore : _semaphores) {
     if (semaphore != VK_NULL_HANDLE) {
@@ -100,8 +112,9 @@ void ComputePipeline::CreateCommandBuffers() {
 
 void ComputePipeline::CreateSynchronization() {
 
-  _semaphores.resize(frames_in_flight); // When swapchain image is ready
-  _fences.resize(frames_in_flight);     // When compute work is done
+  _semaphores.resize(frames_in_flight);       // When swapchain image is ready
+  _preprocessFences.resize(frames_in_flight); // When compute work is done
+  _renderFences.resize(frames_in_flight);     // When compute work is done
 
   VkSemaphoreCreateInfo semaphoreInfo = {};
   semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -115,7 +128,9 @@ void ComputePipeline::CreateSynchronization() {
     if (vkCreateSemaphore(_vkContext.GetLogicalDevice(), &semaphoreInfo,
                           nullptr, &_semaphores[i]) != VK_SUCCESS ||
         vkCreateFence(_vkContext.GetLogicalDevice(), &fenceInfo, nullptr,
-                      &_fences[i]) != VK_SUCCESS) {
+                      &_renderFences[i]) != VK_SUCCESS ||
+        vkCreateFence(_vkContext.GetLogicalDevice(), &fenceInfo, nullptr,
+                      &_preprocessFences[i]) != VK_SUCCESS) {
       throw std::runtime_error("Failed to create synchronization objects!");
     }
   }
@@ -155,7 +170,8 @@ void ComputePipeline::CreateDescriptorSetLayout(const PipelineType pType) {
 }
 
 void ComputePipeline::CreateComputePipeline(std::string shaderName,
-                                            const PipelineType pType) {
+                                            const PipelineType pType,
+                                            int numPushConstants) {
   std::cout << "  - Loading and creating compute pipeline..." << std::endl;
   auto computeShaderCode = ReadFile(shaderName);
   VkShaderModule computeShader = CreateShaderModule(computeShaderCode);
@@ -170,10 +186,26 @@ void ComputePipeline::CreateComputePipeline(std::string shaderName,
   VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
   pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
   pipelineLayoutInfo.setLayoutCount = 1;
-  pipelineLayoutInfo.pSetLayouts =
-      &_descriptorSetLayouts[pType];             // Use our descriptor layout
-  pipelineLayoutInfo.pushConstantRangeCount = 0; // No push constants for now
-  pipelineLayoutInfo.pPushConstantRanges = nullptr;
+  pipelineLayoutInfo.pSetLayouts = &_descriptorSetLayouts[pType];
+
+  VkPushConstantRange pushConstantRange = {};
+  if (numPushConstants != 0) {
+
+    pushConstantRange.stageFlags =
+        VK_SHADER_STAGE_COMPUTE_BIT; // Should be 0x00000020
+    pushConstantRange.offset = 0;
+    pushConstantRange.size = sizeof(uint32_t) * numPushConstants;
+
+    std::cout << "Push constant range - stage: " << pushConstantRange.stageFlags
+              << ", offset: " << pushConstantRange.offset
+              << ", size: " << pushConstantRange.size << std::endl;
+
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
+  } else {
+    pipelineLayoutInfo.pushConstantRangeCount = 0;
+    pipelineLayoutInfo.pPushConstantRanges = nullptr;
+  }
 
   if (vkCreatePipelineLayout(_vkContext.GetLogicalDevice(), &pipelineLayoutInfo,
                              nullptr, &_pipelineLayouts[pType]) != VK_SUCCESS) {
@@ -226,7 +258,118 @@ void ComputePipeline::SetupDescriptorSet(const PipelineType pType) {
             << " descriptor sets for pipeline type " << (int)pType << std::endl;
 }
 
-void ComputePipeline::RecordCommandBufferForImage(uint32_t imageIndex) {
+void ComputePipeline::RecordCommandPreprocess(uint32_t imageIndex) {
+  VkCommandBuffer commandBuffer = _commandBuffers[imageIndex];
+
+  // Begin recording
+  VkCommandBufferBeginInfo beginInfo = {};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  beginInfo.flags = 0; // Not one-time submit
+
+  if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to begin recording command buffer!");
+  }
+  /////////////////////////////////////////////////////////////////////////////////////
+  // Transition image to GENERAL
+  TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED,
+                  VK_IMAGE_LAYOUT_GENERAL,
+                  _vkContext.GetSwapchainImages()[imageIndex].image, 0,
+                  VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  // Bind pipeline 1
+
+  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                    _computePipelines[PipelineType::PREPROCESS]);
+
+  // Bind descriptor set
+  vkCmdBindDescriptorSets(
+      commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+      _pipelineLayouts[PipelineType::PREPROCESS], 0, 1,
+      &_descriptorSets[PipelineType::PREPROCESS][imageIndex], 0, nullptr);
+
+  uint32_t groupX = (_numGaussians + 255) / 256;
+  vkCmdDispatch(commandBuffer, groupX, 1, 1);
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  // Barrier1
+  VkMemoryBarrier barrier = {};
+  barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+  barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+  barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &barrier, 0,
+                       nullptr, 0, nullptr);
+
+  ///////////////////////////////////////////////////////////////////////////////////////
+  //// Prefix Sum
+
+  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                    _computePipelines[PipelineType::PREFIXSUM]);
+  vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                          _pipelineLayouts[PipelineType::PREFIXSUM], 0, 1,
+                          &_descriptorSets[PipelineType::PREFIXSUM][imageIndex],
+                          0, nullptr);
+
+  uint32_t numSteps =
+      static_cast<uint32_t>(std::ceil(std::log2(_numGaussians)));
+  uint32_t prefixSumGroups = (_numGaussians + 255) / 256;
+
+  for (uint32_t step = 0; step <= numSteps; step++) {
+    struct PushConstants {
+      uint32_t step;
+      uint32_t numElements;
+      uint32_t readFromA; // ADD THIS
+    } pushConstants = {step, _numGaussians,
+                       (step % 2) == 0 ? 1 : 0}; // MODIFY THIS
+
+    vkCmdPushConstants(commandBuffer, _pipelineLayouts[PipelineType::PREFIXSUM],
+                       VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants),
+                       &pushConstants);
+    vkCmdDispatch(commandBuffer, prefixSumGroups, 1, 1);
+
+    if (step < numSteps - 1) {
+      VkMemoryBarrier stepBarrier = {};
+      stepBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+      stepBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+      stepBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+      vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+                           &stepBarrier, 0, nullptr, 0, nullptr);
+    }
+  }
+
+  // IMPORTANT: Determine which buffer has the final result
+  bool resultInBufferB = (numSteps % 2) == 1;
+  VkBuffer resultBuffer = resultInBufferB
+                              ? _gaussianBuffers.tilesTouched
+                              : _gaussianBuffers.tilesTouchedPrefixSum;
+
+  VkBufferCopy copyRegion = {};
+  copyRegion.srcOffset = (_numGaussians - 1) * sizeof(uint32_t);
+  copyRegion.dstOffset = 0;
+  copyRegion.size = sizeof(uint32_t);
+
+  vkCmdCopyBuffer(commandBuffer, resultBuffer,
+                  _gaussianBuffers.numRendered.staging, 1, &copyRegion);
+
+  ///////////////////// END PREFIX SUM /////////////////////
+
+  /////////////////////////////////////////////////////////////////////////////////////
+
+  //////////////////////////////////////////////////////////////////////////////////////
+  // End recording
+  if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
+    throw std::runtime_error("Failed to record command buffer!");
+  }
+
+  /*std::cout << " Command buffer recorded for swapchain image " << imageIndex
+            << std::endl;*/
+}
+
+void ComputePipeline::RecordCommandRender(uint32_t imageIndex) {
   VkCommandBuffer commandBuffer = _commandBuffers[imageIndex];
 
   // Begin recording
@@ -238,49 +381,27 @@ void ComputePipeline::RecordCommandBufferForImage(uint32_t imageIndex) {
     throw std::runtime_error("Failed to begin recording command buffer!");
   }
 
-  // Transition image to GENERAL
-  TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED,
-                  VK_IMAGE_LAYOUT_GENERAL,
-                  _vkContext.GetSwapchainImages()[imageIndex].image, 0,
-                  VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-
-  // Bind pipeline
-  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                    _computePipelines[PipelineType::PREPROCESS]);
-
-  // Bind descriptor set
-  vkCmdBindDescriptorSets(
-      commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-      _pipelineLayouts[PipelineType::PREPROCESS], 0, 1,
-      &_descriptorSets[PipelineType::PREPROCESS][imageIndex], 0, nullptr);
-
-  //// Dispatch
-  VkExtent2D extent = _vkContext.GetSwapchainExtent();
-  // uint32_t groupCountX = (extent.width + 15) / 16;
-  // uint32_t groupCountY = (extent.height + 15) / 16;
-  uint32_t groupX = (_numGaussians + 255) / 256;
-  vkCmdDispatch(commandBuffer, groupX, 1, 1);
-
-  VkMemoryBarrier barrier = {};
-  barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-  barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-  barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-
-  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &barrier, 0,
-                       nullptr, 0, nullptr);
-
   vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
                     _computePipelines[PipelineType::NEAREST]);
+
+  // Bind descriptor set
   vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
                           _pipelineLayouts[PipelineType::NEAREST], 0, 1,
                           &_descriptorSets[PipelineType::NEAREST][imageIndex],
                           0, nullptr);
 
-  uint32_t groupXScreen = (extent.width + 15) / 16;
-  uint32_t groupYScreen = (extent.height + 15) / 16;
-  vkCmdDispatch(commandBuffer, groupXScreen, groupYScreen, 1);
+  VkExtent2D extent = _vkContext.GetSwapchainExtent();
+  vkCmdDispatch(commandBuffer, (extent.width + 15) / 16,
+                (extent.height + 15) / 16, 1);
+
+  VkMemoryBarrier barrier = {};
+  barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+  barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+  barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT; // For presentation
+
+  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier, 0,
+                       nullptr, 0, nullptr);
 
   // Transition back to PRESENT
   TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_GENERAL,
@@ -290,13 +411,12 @@ void ComputePipeline::RecordCommandBufferForImage(uint32_t imageIndex) {
                   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                   VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
-  // End recording
   if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
     throw std::runtime_error("Failed to record command buffer!");
   }
 
-  std::cout << " Command buffer recorded for swapchain image " << imageIndex
-            << std::endl;
+  /* std::cout << " Command buffer recorded for swapchain image " << imageIndex
+             << std::endl;*/
 }
 
 VkShaderModule
@@ -348,9 +468,11 @@ void ComputePipeline::TransitionImage(VkCommandBuffer commandBuffer,
 
 void ComputePipeline::RenderFrame() {
 
-  vkWaitForFences(_vkContext.GetLogicalDevice(), 1, &_fences[_currentFrame],
-                  VK_TRUE, UINT64_MAX);
-  vkResetFences(_vkContext.GetLogicalDevice(), 1, &_fences[_currentFrame]);
+  vkWaitForFences(_vkContext.GetLogicalDevice(), 1,
+                  &_renderFences[_currentFrame], VK_TRUE, UINT64_MAX);
+
+  vkResetFences(_vkContext.GetLogicalDevice(), 1,
+                &_preprocessFences[_currentFrame]);
 
   uint32_t imageIndex;
   VkResult result = vkAcquireNextImageKHR(
@@ -361,32 +483,21 @@ void ComputePipeline::RenderFrame() {
     throw std::runtime_error("Failed to acquire swapchain image!");
   }
 
-  // 5. Submit
+  vkResetCommandBuffer(_commandBuffers[imageIndex], 0);
+  RecordCommandPreprocess(imageIndex);
+  submitCommandBuffer(imageIndex);
 
-  VkSubmitInfo submitInfo = {};
-  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO; // Type of submit
+  vkWaitForFences(_vkContext.GetLogicalDevice(), 1,
+                  &_preprocessFences[_currentFrame], VK_TRUE, UINT64_MAX);
 
-  VkSemaphore waitSemaphores[] = {
-      _semaphores[_currentFrame]}; // Wait for image to be available
-  VkPipelineStageFlags waitStages[] = {
-      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT}; // Wait before compute stage
-  submitInfo.waitSemaphoreCount = 1;         // Number of semaphores to wait for
-  submitInfo.pWaitSemaphores =
-      waitSemaphores; // Array of semaphores to wait for
-  submitInfo.pWaitDstStageMask =
-      waitStages; // Which pipeline stages wait for semaphores
-  submitInfo.commandBufferCount = 1; // Number of command buffers to submit
-  submitInfo.pCommandBuffers =
-      &_commandBuffers[imageIndex]; // Array of command buffers to submit
+  uint32_t totalRendered = ReadFinalPrefixSum();
+  std::cout << totalRendered << std::endl;
 
-  if (vkQueueSubmit(_vkContext.GetGraphicsQueue(), // Queue to submit to
-                    1,                             // Number of submits
-                    &submitInfo,                   // Submit info
-                    _fences[_currentFrame]) !=
-      VK_SUCCESS) { // Fence to signal when done
-    throw std::runtime_error("Failed to submit compute command buffer!");
-  }
-
+  vkResetFences(_vkContext.GetLogicalDevice(), 1,
+                &_renderFences[_currentFrame]);
+  // another command buffer?
+  RecordCommandRender(imageIndex);
+  submitCommandBuffer(imageIndex, false);
   // Present the image
   VkPresentInfoKHR presentInfo = {};
   presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR; // Type of present
@@ -400,7 +511,7 @@ void ComputePipeline::RenderFrame() {
       &imageIndex; // Which image in each swapchain to present
 
   vkQueuePresentKHR(_vkContext.GetGraphicsQueue(), &presentInfo);
-  _currentFrame = (_currentFrame + 1) % _fences.size();
+  _currentFrame = (_currentFrame + 1) % _renderFences.size();
 }
 
 void ComputePipeline::CreateDescriptorPool() {
@@ -485,23 +596,39 @@ VkBuffer ComputePipeline::GetBufferByName(const std::string &bufferName) {
     return _gaussianBuffers.points2d;
   if (bufferName == "tilesTouched")
     return _gaussianBuffers.tilesTouched;
+  if (bufferName == "tilesTouchedPrefixSum")
+    return _gaussianBuffers.tilesTouchedPrefixSum;
 
   throw std::runtime_error("Unknown buffer name: " + bufferName);
 }
 
-void ComputePipeline::RecordAllCommandBuffers() {
-  std::cout << "  - Pre-recording command buffers..." << std::endl;
+void ComputePipeline::submitCommandBuffer(uint32_t imageIndex, bool waitSem) {
+  VkSubmitInfo submitInfo = {};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO; // Type of submit
+  submitInfo.commandBufferCount = 1; // Number of command buffers to submit
+  submitInfo.pCommandBuffers = &_commandBuffers[imageIndex];
 
-  uint32_t swapchainImageCount =
-      static_cast<uint32_t>(_vkContext.GetSwapchainImages().size());
+  VkSemaphore waitSemaphores[] = {_semaphores[_currentFrame]};
+  VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT};
 
-  for (uint32_t i = 0; i < swapchainImageCount; i++) {
-    RecordCommandBufferForImage(i);
+  if (waitSem) {
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = waitSemaphores;
+    submitInfo.pWaitDstStageMask = waitStages;
   }
+  VkFence fence = (waitSem) ? _preprocessFences[_currentFrame]
+                            : _renderFences[_currentFrame];
 
-  std::cout << " All " << swapchainImageCount
-            << " command buffers pre-recorded!" << std::endl;
+  if (vkQueueSubmit(_vkContext.GetGraphicsQueue(), // Queue to
+                                                   // submit to
+                    1,                             // Number of submits
+                    &submitInfo,                   // Submit info
+                    fence) != VK_SUCCESS) {        // Fence to signal when done
+    throw std::runtime_error("Failed to submit compute command buffer!");
+  }
 }
+
+void ComputePipeline::RecordAllCommandBuffers() {}
 
 void ComputePipeline::BindImageToDescriptor(const PipelineType pType,
                                             uint32_t i, VkImageView view) {

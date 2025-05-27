@@ -23,6 +23,7 @@ enum class PipelineType {
   SORTING,
   SPLATTING,
   PREPROCESS,
+  PREFIXSUM,
   NEAREST
 };
 
@@ -40,7 +41,8 @@ private:
   VulkanContext &_vkContext;
 
   std::vector<VkCommandBuffer> _commandBuffers;
-  std::vector<VkFence> _fences;
+  std::vector<VkFence> _preprocessFences;
+  std::vector<VkFence> _renderFences;
   std::vector<VkSemaphore> _semaphores;
 
   std::map<PipelineType, VkDescriptorSetLayout> _descriptorSetLayouts;
@@ -55,9 +57,11 @@ private:
   void CreateSynchronization();
   void CreateDescriptorSetLayout(const PipelineType pType);
   void CreateDescriptorPool();
-  void CreateComputePipeline(std::string shaderName, const PipelineType pType);
+  void CreateComputePipeline(std::string shaderName, const PipelineType pType,
+                             int numPushConstants = 0);
   void SetupDescriptorSet(const PipelineType pType);
-  void RecordCommandBufferForImage(uint32_t imageIndex);
+  void RecordCommandPreprocess(uint32_t imageIndex);
+  void RecordCommandRender(uint32_t imageIndex);
   VkShaderModule CreateShaderModule(const std::vector<char> &code);
 
   void TransitionImage(VkCommandBuffer commandBuffer, VkImageLayout in,
@@ -74,6 +78,7 @@ private:
                               VkDescriptorType descriptorType);
   VkBuffer GetBufferByName(const std::string &bufferName);
 
+  void submitCommandBuffer(uint32_t imageIndex, bool waitSem = true);
   // repeated layouts:: we can share them. TODO
   std::map<PipelineType, std::vector<DescriptorBinding>> SHADER_LAYOUTS = {
       {PipelineType::PREPROCESS,
@@ -120,10 +125,14 @@ private:
         {6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
          "camUniform"}}},
 
-      {PipelineType::SORTING,
-       {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1},
-        {1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT,
-         1}}},
+      {PipelineType::PREFIXSUM,
+       {
+           {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT,
+            1, "tilesTouched"},
+           {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT,
+            1, "tilesTouchedPrefixSum"},
+
+       }},
 
       {PipelineType::SPLATTING,
        {{0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1},
@@ -133,4 +142,9 @@ private:
 
   GaussianBuffers _gaussianBuffers;
   int _numGaussians;
+
+  inline uint32_t ReadFinalPrefixSum() {
+
+    return *static_cast<uint32_t *>(_gaussianBuffers.numRendered.mem);
+  }
 };

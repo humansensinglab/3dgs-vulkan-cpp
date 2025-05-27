@@ -113,10 +113,10 @@ bool inFrustum(int idx, out vec3 pView) {
     pView = transformPoint4x3(pos, camera.viewMatrix);
     
     // Near plane culling
-    if (pView.z <= 0.01) return false;
-    
+    //if (pView.z <= 0.01) return false;
+    if (pView.z >= -0.01) return false;  
     // Frustum culling (simplified)
-    vec4 pClip = camera.projMatrix * camera.viewMatrix * vec4(pView, 1.0);
+    vec4 pClip = camera.projMatrix * vec4(pView, 1.0);
     return abs(pClip.x) <= pClip.w && abs(pClip.y) <= pClip.w;
 }
 
@@ -308,6 +308,9 @@ void computeCov3D(int idx, float scaleModifier, out float cov3D_out[6]) {
 void main() {
    uint idx = gl_GlobalInvocationID.x;
     
+    if (idx < tilesTouched.length()) {
+    tilesTouched[idx] = 0;
+    }
     // Early exit if beyond array bounds
     if (idx >= positions.length()) return;
     
@@ -319,8 +322,8 @@ void main() {
     tilesTouched[idx] = 0;
     
     // Frustum culling
-    //vec3 pView;
-    //if (!inFrustum(int(idx), pView)) return;
+    vec3 pView;
+    if (!inFrustum(int(idx), pView)) return;
     
     // Transform to clip space
     vec3 pOrig = positions[idx];

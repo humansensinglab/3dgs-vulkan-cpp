@@ -47,8 +47,11 @@ private:
                              std::string type, int offset = 1);
 
   template <typename T>
-  void CreateWriteBuffers(VkBuffer &buffer, std::string type, int offset = 1);
+  void CreateWriteBuffers(VkBuffer &buffer, std::string type, int offset = 1,
+                          int dst = false);
   void CreateUniformBuffer();
+  void CreateCopyStagingBuffer();
+
   GaussianBuffers _buffers;
   std::unique_ptr<Camera> _camera;
   int _shDegree;
@@ -94,14 +97,18 @@ GaussianRenderer::CreateAndUploadBuffer(VkBuffer &buffer, const void *data,
 
 template <typename T>
 inline void GaussianRenderer::CreateWriteBuffers(VkBuffer &buffer,
-                                                 std::string type, int offset) {
+                                                 std::string type, int offset,
+                                                 int dst) {
   VkDeviceSize bufferSize = sizeof(T) * _nGauss;
   std::cout << " Creating " << type << " buffer : " << bufferSize << " bytes "
             << std::endl;
   VkPhysicalDevice physicalDevice = _vulkanContext.GetPhysicalDevice();
   VkDevice device = _vulkanContext.GetLogicalDevice();
-
-  buffer = _bufferManager.CreateBuffer(device, physicalDevice, bufferSize,
-                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  VkBufferUsageFlags usage = (dst == true)
+                                 ? VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+                                 : VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+  buffer =
+      _bufferManager.CreateBuffer(device, physicalDevice, bufferSize, usage,
+                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 }
