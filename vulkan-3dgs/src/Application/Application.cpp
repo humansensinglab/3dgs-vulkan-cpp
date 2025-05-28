@@ -1,3 +1,6 @@
+// Vulkan 3DGS - Copyright (c) 2025 Alejandro Amat (github.com/AlejandroAmat) -
+// MIT Licensed
+
 #include "GaussianRenderer.h"
 #include "PLYLoader.h"
 #include "VulkanContext.h"

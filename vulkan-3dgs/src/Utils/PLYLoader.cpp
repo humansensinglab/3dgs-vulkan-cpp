@@ -1,3 +1,6 @@
+// Vulkan 3DGS - Copyright (c) 2025 Alejandro Amat (github.com/AlejandroAmat) -
+// MIT Licensed
+
 #include "PLYLoader.h"
 
 std::unique_ptr<GaussianBase> PLYLoader::LoadPLY(const std::string &path,

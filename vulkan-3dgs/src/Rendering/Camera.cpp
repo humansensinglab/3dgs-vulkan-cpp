@@ -1,3 +1,6 @@
+// Vulkan 3DGS - Copyright (c) 2025 Alejandro Amat (github.com/AlejandroAmat) -
+// MIT Licensed
+
 #include "Camera.h"
 
 Camera::Camera(int w, int h, float fov, float aspectRatio, float nearPlane,
