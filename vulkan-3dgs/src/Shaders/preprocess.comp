@@ -21,10 +21,12 @@ const float SH_C3[7] = float[](
     1.445305721320277,
     -0.5900435899266435
 );
-
+const uint GAUSSIAN_COUNT = 1496336u;
 const int BLOCK_X = 16;
 const int BLOCK_Y = 16;
-
+layout(push_constant) uniform PushConstants {
+    uint gaussianCount;
+} pc;
 // Input buffers
 layout(binding = 1) readonly buffer GaussianPositions {
     vec3 positions[];
@@ -86,7 +88,7 @@ layout(binding = 12) writeonly buffer OutputTilesTouched {
 };
 
 layout(binding = 13) writeonly buffer BoundingBox {
-    vec4 bbox[];
+    uvec4 bbox[];
 };
 
 
@@ -237,7 +239,7 @@ vec3 computeColorFromSH(int idx) {
     return max(result, vec3(0.0));
 }
 
-vec3 computeCov2D(vec3 mean, vec3 cov3D_data) {
+vec3 computeCov2D(vec3 mean, float cov3D_data[6]) {
     // Transform to view space
     vec3 t = transformPoint4x3(mean, camera.viewMatrix);
     
@@ -260,11 +262,10 @@ vec3 computeCov2D(vec3 mean, vec3 cov3D_data) {
     mat3 W = mat3(camera.viewMatrix);
     mat3 T = W * J;
     
-    // 3D covariance matrix (symmetric, stored as 6 values)
     mat3 Vrk = mat3(
-        cov3D_data.x, cov3D_data.y, cov3D_data.z,
-        cov3D_data.y, cov3D_data.x, cov3D_data.y,  // This needs proper indexing
-        cov3D_data.z, cov3D_data.y, cov3D_data.z   // This needs proper indexing
+        cov3D_data[0], cov3D_data[1], cov3D_data[2],  // [xx, xy, xz]
+        cov3D_data[1], cov3D_data[3], cov3D_data[4],  // [xy, yy, yz] 
+        cov3D_data[2], cov3D_data[4], cov3D_data[5]   // [xz, yz, zz]
     );
     
     mat3 cov = transpose(T) * transpose(Vrk) * T;
@@ -312,23 +313,29 @@ void computeCov3D(int idx, float scaleModifier, out float cov3D_out[6]) {
 void main() {
    uint idx = gl_GlobalInvocationID.x;
     
-    if (idx < tilesTouched.length()) {
-    tilesTouched[idx] = 0;
-    }
-    // Early exit if beyond array bounds
-    if (idx >= positions.length()) return;
+   
+    
+     if (idx >= pc.gaussianCount) return;
     
     int gridX = (camera.imageWidth + BLOCK_X - 1) / BLOCK_X;
     int gridY = (camera.imageHeight + BLOCK_Y - 1) / BLOCK_Y;
 
+
+    if (idx < 10) {
+    vec3 scale = scales[idx];
+    radii[idx] = int(12); // See actual scale values
+    }
+
+
     // Initialize outputs
     radii[idx] = 0;
     tilesTouched[idx] = 0;
+    depth[idx] = 0;
     
     // Frustum culling
     vec3 pView;
     if (!inFrustum(int(idx), pView)) return;
-    
+ 
     // Transform to clip space
     vec3 pOrig = positions[idx];
     vec4 pHom = transformPoint4x4(pOrig, camera.projMatrix * camera.viewMatrix);
@@ -340,7 +347,7 @@ void main() {
     computeCov3D(int(idx), 1.0, cov3D_data);
       
     // Compute 2D covariance  
-    vec3 cov2D = computeCov2D(pOrig, vec3(cov3D_data[0], cov3D_data[1], cov3D_data[3]));
+    vec3 cov2D = computeCov2D(pOrig, cov3D_data);
     
     // Invert covariance (EWA algorithm)
     float det = cov2D.x * cov2D.z - cov2D.y * cov2D.y;
@@ -370,7 +377,7 @@ void main() {
         min(gridY, max(0, int((pointImage.y + myRadius + BLOCK_Y - 1) / BLOCK_Y)))
     );
 
-    bbox[idx] = vec4(rectMin.x, rectMin.y, rectMax.x, rectMax.y);
+    bbox[idx] = uvec4(rectMin.x, rectMin.y, rectMax.x, rectMax.y);
 
     
     if ((rectMax.x - rectMin.x) * (rectMax.y - rectMin.y) == 0) return;
@@ -379,7 +386,7 @@ void main() {
     // Compute color from spherical harmonics
     vec3 color = computeColorFromSH(int(idx));
     
-    depth[idx] = pView.z;
+    depth[idx] = -pView.z;
     radii[idx] = int(myRadius);
     pointsXY[idx] = pointImage;
     conicOpacity[idx] = vec4(conic, opacities[idx]);

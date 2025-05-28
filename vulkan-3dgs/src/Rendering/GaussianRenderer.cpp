@@ -119,9 +119,9 @@ void GaussianRenderer::CreateGaussianBuffers() {
 }
 
 void GaussianRenderer::CreatePipelineStorageBuffers() {
-  CreateWriteBuffers<int>(_buffers.radii, "radii");
-  CreateWriteBuffers<float>(_buffers.depth, "depth");
-  CreateWriteBuffers<float>(_buffers.color, "color");
+  CreateWriteBuffers<int>(_buffers.radii, "radii", 1);
+  CreateWriteBuffers<float>(_buffers.depth, "depth", 1);
+  CreateWriteBuffers<glm::vec3>(_buffers.color, "color");
   CreateWriteBuffers<glm::vec4>(_buffers.conicOpacity, "conicOpacity");
   CreateWriteBuffers<glm::vec2>(_buffers.points2d, "points2d");
   CreateWriteBuffers<int>(_buffers.tilesTouched, "tilesTouched", 1, true);
@@ -129,13 +129,13 @@ void GaussianRenderer::CreatePipelineStorageBuffers() {
                           "tilesTouchedPrefixSum", 1, true);
   CreateWriteBuffers<glm::vec4>(_buffers.boundingBox, "boundingBox");
   CreateWriteBuffers<uint64_t>(_buffers.keysUnsorted, "keysUnsorted",
-                               AVG_GAUSS_TILE);
+                               AVG_GAUSS_TILE, true);
   CreateWriteBuffers<uint64_t>(_buffers.keysSorted, "keysSorted",
-                               AVG_GAUSS_TILE);
-  CreateWriteBuffers<uint32_t>(_buffers.valuesSorted, "valuesSorted",
+                               AVG_GAUSS_TILE, true);
+  CreateWriteBuffers<uint32_t>(_buffers.valuesSorted, "valuesSorted", true,
                                AVG_GAUSS_TILE);
   CreateWriteBuffers<uint32_t>(_buffers.valuesUnsorted, "valuesUnsorted",
-                               AVG_GAUSS_TILE);
+                               AVG_GAUSS_TILE, true);
   // ranges
 }
 
@@ -174,7 +174,7 @@ void GaussianRenderer::CreateCopyStagingBuffer() {
   VkDevice device = _vulkanContext.GetLogicalDevice();
   VkPhysicalDevice physicalDevice = _vulkanContext.GetPhysicalDevice();
 
-  VkDeviceSize bufferSize = sizeof(int);
+  VkDeviceSize bufferSize = sizeof(int) * 10000;
 
   _buffers.numRendered.staging = _bufferManager.CreateBuffer(
       device, physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT,

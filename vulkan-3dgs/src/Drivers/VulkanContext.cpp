@@ -48,7 +48,7 @@ void VulkanContext::CreateInstance() {
   appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
   appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
   appInfo.pEngineName = "No Engine";
-  appInfo.apiVersion = VK_API_VERSION_1_0;
+  appInfo.apiVersion = VK_API_VERSION_1_2;
 
   VkInstanceCreateInfo createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -75,15 +75,25 @@ void VulkanContext::CreateInstance() {
       extensionCount + static_cast<int>(enableValidationLayers);
   createInfo.ppEnabledExtensionNames = instanceExtensions.data();
   VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
+  VkValidationFeaturesEXT validationFeatures{};
   if (enableValidationLayers) {
     createInfo.enabledLayerCount =
         static_cast<uint32_t>(validationLayers.size());
-    ;
     createInfo.ppEnabledLayerNames = validationLayers.data();
-    printf("%s", validationLayers[0]);
-    PopulateDebugMessengerCreateInfo(debugCreateInfo);
-    createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debugCreateInfo;
 
+    PopulateDebugMessengerCreateInfo(debugCreateInfo);
+
+    // ADD THIS BLOCK FOR DEBUG PRINTF
+    validationFeatures.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+    VkValidationFeatureEnableEXT enables[] = {
+        VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT};
+    validationFeatures.enabledValidationFeatureCount = 1;
+    validationFeatures.pEnabledValidationFeatures = enables;
+
+    // Chain the structs
+    validationFeatures.pNext = &debugCreateInfo;
+    createInfo.pNext =
+        &validationFeatures; // Point to validation features instead
   } else {
     createInfo.enabledLayerCount = 0;
     createInfo.ppEnabledLayerNames = nullptr;
@@ -135,6 +145,7 @@ void VulkanContext::CreateLogicalDevice() {
   deviceInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
   VkPhysicalDeviceFeatures deviceFeatures = {};
+  deviceFeatures.shaderInt64 = VK_TRUE;
 
   deviceInfo.pEnabledFeatures =
       &deviceFeatures; // physical device features, device will use
@@ -368,6 +379,7 @@ bool VulkanContext::CheckDeviceSuitable(VkPhysicalDevice device) {
   VkPhysicalDeviceFeatures deviceFeatures;
   vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
+  bool shaderint64 = deviceFeatures.shaderInt64;
   bool isDiscreteGPU =
       deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
   // queue families
@@ -384,7 +396,8 @@ bool VulkanContext::CheckDeviceSuitable(VkPhysicalDevice device) {
                      swapChainDetails.presentationsMode.size() > 0;
   }
 
-  return indices.isValid() && deviceExtensionSupport && swapChainValid;
+  return indices.isValid() && deviceExtensionSupport && swapChainValid &&
+         shaderint64;
 }
 
 bool VulkanContext::CheckDeviceExtensionSupport(VkPhysicalDevice device) {

@@ -4,11 +4,16 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   std::cout << "\n === Compute Pipeline Initalization === \n" << std::endl;
 
   _gaussianBuffers = gaussianBuffer;
+  bool resultInBufferB = (_numSteps % 2) == 1;
+  _resultBufferPrefix = resultInBufferB
+                            ? _gaussianBuffers.tilesTouched
+                            : _gaussianBuffers.tilesTouchedPrefixSum;
   CreateCommandBuffers();
   CreateDescriptorPool();
 
   CreateDescriptorSetLayout(PipelineType::PREPROCESS);
-  CreateComputePipeline("src/Shaders/preprocess.spv", PipelineType::PREPROCESS);
+  CreateComputePipeline("src/Shaders/preprocess.spv", PipelineType::PREPROCESS,
+                        1);
   SetupDescriptorSet(PipelineType::PREPROCESS);
   UpdateAllDescriptorSets(PipelineType::PREPROCESS);
 
@@ -23,7 +28,8 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   UpdateAllDescriptorSets(PipelineType::NEAREST);
 
   CreateDescriptorSetLayout(PipelineType::ASSIGN_TILE_IDS);
-  // CreateComputePipeline("src/Shaders/nearest.spv", PipelineType::NEAREST);
+  CreateComputePipeline("src/Shaders/idkeys.spv", PipelineType::ASSIGN_TILE_IDS,
+                        2);
   SetupDescriptorSet(PipelineType::ASSIGN_TILE_IDS);
   UpdateAllDescriptorSets(PipelineType::ASSIGN_TILE_IDS);
 
@@ -288,6 +294,9 @@ void ComputePipeline::RecordCommandPreprocess(uint32_t imageIndex) {
   vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
                     _computePipelines[PipelineType::PREPROCESS]);
 
+  vkCmdPushConstants(commandBuffer, _pipelineLayouts[PipelineType::PREPROCESS],
+                     VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(int),
+                     &_numGaussians);
   // Bind descriptor set
   vkCmdBindDescriptorSets(
       commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -318,11 +327,9 @@ void ComputePipeline::RecordCommandPreprocess(uint32_t imageIndex) {
                           &_descriptorSets[PipelineType::PREFIXSUM][imageIndex],
                           0, nullptr);
 
-  uint32_t numSteps =
-      static_cast<uint32_t>(std::ceil(std::log2(_numGaussians)));
   uint32_t prefixSumGroups = (_numGaussians + 255) / 256;
 
-  for (uint32_t step = 0; step <= numSteps; step++) {
+  for (uint32_t step = 0; step <= _numSteps; step++) {
     struct PushConstants {
       uint32_t step;
       uint32_t numElements;
@@ -335,7 +342,7 @@ void ComputePipeline::RecordCommandPreprocess(uint32_t imageIndex) {
                        &pushConstants);
     vkCmdDispatch(commandBuffer, prefixSumGroups, 1, 1);
 
-    if (step < numSteps - 1) {
+    if (step < _numSteps - 1) {
       VkMemoryBarrier stepBarrier = {};
       stepBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
       stepBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
@@ -346,18 +353,12 @@ void ComputePipeline::RecordCommandPreprocess(uint32_t imageIndex) {
     }
   }
 
-  // IMPORTANT: Determine which buffer has the final result
-  bool resultInBufferB = (numSteps % 2) == 1;
-  VkBuffer resultBuffer = resultInBufferB
-                              ? _gaussianBuffers.tilesTouched
-                              : _gaussianBuffers.tilesTouchedPrefixSum;
-
   VkBufferCopy copyRegion = {};
   copyRegion.srcOffset = (_numGaussians - 1) * sizeof(uint32_t);
   copyRegion.dstOffset = 0;
   copyRegion.size = sizeof(uint32_t);
 
-  vkCmdCopyBuffer(commandBuffer, resultBuffer,
+  vkCmdCopyBuffer(commandBuffer, _resultBufferPrefix,
                   _gaussianBuffers.numRendered.staging, 1, &copyRegion);
 
   ///////////////////// END PREFIX SUM /////////////////////
@@ -374,7 +375,8 @@ void ComputePipeline::RecordCommandPreprocess(uint32_t imageIndex) {
             << std::endl;*/
 }
 
-void ComputePipeline::RecordCommandRender(uint32_t imageIndex) {
+void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
+                                          int numRendered) {
   VkCommandBuffer commandBuffer = _commandBuffers[imageIndex];
 
   // Begin recording
@@ -387,17 +389,24 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex) {
   }
 
   vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                    _computePipelines[PipelineType::NEAREST]);
-
-  // Bind descriptor set
-  vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                          _pipelineLayouts[PipelineType::NEAREST], 0, 1,
-                          &_descriptorSets[PipelineType::NEAREST][imageIndex],
-                          0, nullptr);
+                    _computePipelines[PipelineType::ASSIGN_TILE_IDS]);
 
   VkExtent2D extent = _vkContext.GetSwapchainExtent();
-  vkCmdDispatch(commandBuffer, (extent.width + 15) / 16,
-                (extent.height + 15) / 16, 1);
+  uint32_t tileX = (extent.width + 15) / 16;
+  struct {
+    uint32_t tile;
+    int nGauss;
+  } pushCt = {tileX, _numGaussians};
+  vkCmdPushConstants(commandBuffer,
+                     _pipelineLayouts[PipelineType::ASSIGN_TILE_IDS],
+                     VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushCt), &pushCt);
+
+  vkCmdBindDescriptorSets(
+      commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+      _pipelineLayouts[PipelineType::ASSIGN_TILE_IDS], 0, 1,
+      &_descriptorSets[PipelineType::ASSIGN_TILE_IDS][imageIndex], 0, nullptr);
+
+  vkCmdDispatch(commandBuffer, (_numGaussians + 255) / 256, 1, 1);
 
   VkMemoryBarrier barrier = {};
   barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
@@ -407,6 +416,37 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex) {
   vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier, 0,
                        nullptr, 0, nullptr);
+
+  VkBufferCopy copyRegion = {};
+  copyRegion.srcOffset = (numRendered - 100) * sizeof(uint32_t);
+  copyRegion.dstOffset = 0;
+  copyRegion.size = 100 * sizeof(uint32_t);
+
+  vkCmdCopyBuffer(commandBuffer, _gaussianBuffers.valuesUnsorted,
+                  _gaussianBuffers.numRendered.staging, 1, &copyRegion);
+
+  /////////////////////////////////////////////////////////////////////////////////////////
+
+  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                    _computePipelines[PipelineType::NEAREST]);
+
+  // Bind descriptor set
+  vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                          _pipelineLayouts[PipelineType::NEAREST], 0, 1,
+                          &_descriptorSets[PipelineType::NEAREST][imageIndex],
+                          0, nullptr);
+
+  vkCmdDispatch(commandBuffer, (extent.width + 15) / 16,
+                (extent.height + 15) / 16, 1);
+
+  VkMemoryBarrier barrier_x = {};
+  barrier_x.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+  barrier_x.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+  barrier_x.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT; // For presentation
+
+  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier_x,
+                       0, nullptr, 0, nullptr);
 
   // Transition back to PRESENT
   TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_GENERAL,
@@ -479,6 +519,10 @@ void ComputePipeline::RenderFrame() {
   vkResetFences(_vkContext.GetLogicalDevice(), 1,
                 &_preprocessFences[_currentFrame]);
 
+  uint32_t *v = reinterpret_cast<uint32_t *>(_gaussianBuffers.numRendered.mem);
+  for (int k = 0; k < 100; k++) {
+    std::cout << v[k] << std::endl;
+  }
   uint32_t imageIndex;
   VkResult result = vkAcquireNextImageKHR(
       _vkContext.GetLogicalDevice(), _vkContext.GetSwapchain(), UINT64_MAX,
@@ -496,16 +540,18 @@ void ComputePipeline::RenderFrame() {
                   &_preprocessFences[_currentFrame], VK_TRUE, UINT64_MAX);
 
   uint32_t totalRendered = ReadFinalPrefixSum();
-
+  std::cout << totalRendered << std::endl;
   if (totalRendered > _sizeBufferMax) {
     resizeBuffers(totalRendered * 1.25);
   }
   vkResetFences(_vkContext.GetLogicalDevice(), 1,
                 &_renderFences[_currentFrame]);
+
   // another command buffer?
-  RecordCommandRender(imageIndex);
+  RecordCommandRender(imageIndex, totalRendered);
   submitCommandBuffer(imageIndex, false);
   // Present the image
+
   VkPresentInfoKHR presentInfo = {};
   presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR; // Type of present
   presentInfo.waitSemaphoreCount = 0;    // No additional semaphores to wait for
@@ -522,7 +568,6 @@ void ComputePipeline::RenderFrame() {
 }
 
 void ComputePipeline::CreateDescriptorPool() {
-
   std::map<VkDescriptorType, uint32_t> typeCounts;
   uint32_t swapchainImageCount =
       static_cast<uint32_t>(_vkContext.GetSwapchainImages().size());
@@ -617,6 +662,8 @@ VkBuffer ComputePipeline::GetBufferByName(const std::string &bufferName) {
     return _gaussianBuffers.valuesSorted;
   if (bufferName == "ranges")
     return _gaussianBuffers.ranges;
+  if (bufferName == "prefixResult")
+    return _resultBufferPrefix;
 
   throw std::runtime_error("Unknown buffer name: " + bufferName);
 }
@@ -647,6 +694,14 @@ void ComputePipeline::submitCommandBuffer(uint32_t imageIndex, bool waitSem) {
   }
 }
 
+int ComputePipeline::getRadixIterations() {
+  VkExtent2D extent = _vkContext.GetSwapchainExtent();
+  uint32_t nTiles = ((extent.width + 15) / 16) * ((extent.height + 15) / 16);
+  uint32_t tileBits = static_cast<uint32_t>(std::ceil(std::log2(nTiles)));
+  uint32_t totalBits = 32 + tileBits;
+  return (totalBits + 7) / 8;
+}
+
 void ComputePipeline::resizeBuffers(uint32_t size) {
   // We could implement memory Pool?
   VkPhysicalDevice physicalDevice = _vkContext.GetPhysicalDevice();
@@ -659,7 +714,8 @@ void ComputePipeline::resizeBuffers(uint32_t size) {
 
   VkDeviceSize bufferSizeKey = sizeof(int64_t) * size;
   VkDeviceSize bufferSizeValue = sizeof(int32_t) * size;
-  VkBufferUsageFlags usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+  VkBufferUsageFlags usage =
+      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
   _gaussianBuffers.keysUnsorted =
       _buffManager->CreateBuffer(device, physicalDevice, bufferSizeKey, usage,

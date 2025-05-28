@@ -40,6 +40,7 @@ public:
   void setNumGaussians(int gauss) {
     _numGaussians = gauss;
     _sizeBufferMax = gauss * AVG_GAUSS_TILE;
+    _numSteps = static_cast<uint32_t>(std::ceil(std::log2(_numGaussians)));
   }
   void setBufferManager(BufferManager *bufferManager) {
     _buffManager = bufferManager;
@@ -69,7 +70,7 @@ private:
                              int numPushConstants = 0);
   void SetupDescriptorSet(const PipelineType pType);
   void RecordCommandPreprocess(uint32_t imageIndex);
-  void RecordCommandRender(uint32_t imageIndex);
+  void RecordCommandRender(uint32_t imageIndex, int numRendered);
   VkShaderModule CreateShaderModule(const std::vector<char> &code);
 
   void TransitionImage(VkCommandBuffer commandBuffer, VkImageLayout in,
@@ -87,7 +88,7 @@ private:
   VkBuffer GetBufferByName(const std::string &bufferName);
 
   void submitCommandBuffer(uint32_t imageIndex, bool waitSem = true);
-
+  int getRadixIterations();
   void resizeBuffers(uint32_t size);
   // repeated layouts:: we can share them. TODO
   std::map<PipelineType, std::vector<DescriptorBinding>> SHADER_LAYOUTS = {
@@ -148,7 +149,7 @@ private:
 
       {PipelineType::ASSIGN_TILE_IDS,
        {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "tilesTouched"},
+         "prefixResult"},
         {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
          "depths"},
         {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
@@ -164,6 +165,9 @@ private:
   GaussianBuffers _gaussianBuffers;
   BufferManager *_buffManager;
   int _numGaussians;
+  uint32_t _numSteps;
+
+  VkBuffer _resultBufferPrefix;
 
   inline uint32_t ReadFinalPrefixSum() {
 
