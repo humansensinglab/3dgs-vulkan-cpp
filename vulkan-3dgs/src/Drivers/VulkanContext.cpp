@@ -138,20 +138,31 @@ void VulkanContext::CreateLogicalDevice() {
     deviceQueueInfos.push_back(queueInfo);
   }
 
+  VkPhysicalDeviceVulkan12Features vulkan12Features{};
+  vulkan12Features.sType =
+      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+  vulkan12Features.pNext = nullptr; // No more features to chain
+  vulkan12Features.shaderSharedInt64Atomics =
+      VK_TRUE; // Required for the radix sort
+  vulkan12Features.shaderBufferInt64Atomics = VK_TRUE; // Good to have
+
+  // Create features2 struct
+  VkPhysicalDeviceFeatures2 features2{};
+  features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+  features2.pNext = &vulkan12Features;      // Chain the Vulkan 1.2 features
+  features2.features.shaderInt64 = VK_TRUE; // Your existing feature
+
+  // Modify your device create info
   VkDeviceCreateInfo deviceInfo = {};
   deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+  deviceInfo.pNext = &features2; // Point to the features2
   deviceInfo.queueCreateInfoCount =
       static_cast<uint32_t>(deviceQueueInfos.size());
   deviceInfo.pQueueCreateInfos = deviceQueueInfos.data();
   deviceInfo.enabledExtensionCount =
       static_cast<uint32_t>(deviceExtensions.size());
   deviceInfo.ppEnabledExtensionNames = deviceExtensions.data();
-
-  VkPhysicalDeviceFeatures deviceFeatures = {};
-  deviceFeatures.shaderInt64 = VK_TRUE;
-
-  deviceInfo.pEnabledFeatures =
-      &deviceFeatures; // physical device features, device will use
+  deviceInfo.pEnabledFeatures = nullptr; // Must be nullptr when using pNext
 
   if (vkCreateDevice(_vcxMainDevice.physicalDevice, &deviceInfo, nullptr,
                      &_vcxMainDevice.logicalDevice) != VK_SUCCESS)

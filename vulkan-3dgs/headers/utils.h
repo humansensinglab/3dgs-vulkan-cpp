@@ -32,11 +32,12 @@ struct GaussianBuffers {
   VkBuffer tilesTouchedPrefixSum;
   VkBuffer boundingBox;
   StagingRead numRendered;
-  VkBuffer keysUnsorted;
-  VkBuffer valuesUnsorted;
-  VkBuffer keysSorted;
-  VkBuffer valuesSorted;
+  VkBuffer keys;
+  VkBuffer valuesRadix;
+  VkBuffer keysRadix;
+  VkBuffer values;
   VkBuffer ranges;
+  VkBuffer histogram;
 };
 
 const std::vector<const char *> deviceExtensions = {

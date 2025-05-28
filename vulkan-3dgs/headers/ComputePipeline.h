@@ -11,6 +11,9 @@
 #include <iostream>
 #include <map>
 
+const uint32_t WORKGROUP_SIZE = 256;
+const uint32_t RADIX_SORT_BINS = 256;
+const uint32_t blocks_per_workgroup = 32;
 constexpr int frames_in_flight = 2;
 
 struct DescriptorBinding {
@@ -29,7 +32,11 @@ enum class PipelineType {
   PREPROCESS,
   PREFIXSUM,
   ASSIGN_TILE_IDS,
-  NEAREST
+  NEAREST,
+  RADIX_HISTOGRAM_0,
+  RADIX_HISTOGRAM_1,
+  RADIX_SCATTER_0,
+  RADIX_SCATTER_1
 };
 
 class ComputePipeline {
@@ -42,7 +49,7 @@ public:
   void CleanUp();
   void setNumGaussians(int gauss) {
     _numGaussians = gauss;
-    _sizeBufferMax = gauss * AVG_GAUSS_TILE;
+    //_sizeBufferMax = gauss * AVG_GAUSS_TILE;
     _numSteps = static_cast<uint32_t>(std::ceil(std::log2(_numGaussians)));
   }
   void setBufferManager(BufferManager *bufferManager) {
@@ -88,11 +95,13 @@ private:
   void BindBufferToDescriptor(const PipelineType pType, uint32_t bindingIndex,
                               uint32_t i, VkBuffer buffer,
                               VkDescriptorType descriptorType);
+
   VkBuffer GetBufferByName(const std::string &bufferName);
 
   void submitCommandBuffer(uint32_t imageIndex, bool waitSem = true);
   int getRadixIterations();
   void resizeBuffers(uint32_t size);
+  void SetUpRadixBuffers();
   // repeated layouts:: we can share them. TODO
   std::map<PipelineType, std::vector<DescriptorBinding>> SHADER_LAYOUTS = {
       {PipelineType::PREPROCESS,
@@ -142,13 +151,10 @@ private:
          "camUniform"}}},
 
       {PipelineType::PREFIXSUM,
-       {
-           {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT,
-            1, "tilesTouched"},
-           {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT,
-            1, "tilesTouchedPrefixSum"},
-
-       }},
+       {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "tilesTouched"},
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "tilesTouchedPrefixSum"}}},
 
       {PipelineType::ASSIGN_TILE_IDS,
        {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
@@ -160,20 +166,66 @@ private:
         {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
          "boundingBox"},
         {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "keysUnsorted"},
+         "keys"},
         {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "valuesUnsorted"}}}};
+         "values"}}},
 
-  int _sizeBufferMax;
+      {PipelineType::RADIX_HISTOGRAM_0,
+       {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "keys"}, // reads from unsorted on even passes
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "histograms"}}},
+
+      {PipelineType::RADIX_HISTOGRAM_1,
+       {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "keysRadix"}, // reads from sorted on odd passes
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "histograms"}}},
+
+      {PipelineType::RADIX_SCATTER_0,
+       {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "keys"}, // binding 0: read from unsorted
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "keysRadix"}, // binding 1: write to sorted
+        {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "values"}, // binding 2: read from unsorted
+        {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "valuesRadix"}, // binding 3: write to sorted
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "histograms"}}},
+
+      {PipelineType::RADIX_SCATTER_1,
+       {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "keysRadix"}, // binding 0: read from sorted
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "keys"}, // binding 1: write to unsorted
+        {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "valuesRadix"}, // binding 2: read from sorted
+        {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "values"}, // binding 3: write to unsorted
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "histograms"}}}
+
+  };
+
+  int _sizeBufferMax = 0;
   GaussianBuffers _gaussianBuffers;
   BufferManager *_buffManager;
   int _numGaussians;
   uint32_t _numSteps;
+  VkDescriptorSet _radixDescriptorSets[12];
 
   VkBuffer _resultBufferPrefix;
 
   inline uint32_t ReadFinalPrefixSum() {
 
     return *static_cast<uint32_t *>(_gaussianBuffers.numRendered.mem);
+  }
+
+  inline bool IsRadixPipeline(PipelineType pType) {
+    return pType == PipelineType::RADIX_HISTOGRAM_0 ||
+           pType == PipelineType::RADIX_HISTOGRAM_1 ||
+           pType == PipelineType::RADIX_SCATTER_0 ||
+           pType == PipelineType::RADIX_SCATTER_1;
   }
 };

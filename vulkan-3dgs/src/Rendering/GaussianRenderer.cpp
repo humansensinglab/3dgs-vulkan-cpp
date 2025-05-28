@@ -131,14 +131,13 @@ void GaussianRenderer::CreatePipelineStorageBuffers() {
   CreateWriteBuffers<int>(_buffers.tilesTouchedPrefixSum,
                           "tilesTouchedPrefixSum", 1, true);
   CreateWriteBuffers<glm::vec4>(_buffers.boundingBox, "boundingBox");
-  CreateWriteBuffers<uint64_t>(_buffers.keysUnsorted, "keysUnsorted",
+  CreateWriteBuffers<uint64_t>(_buffers.keysRadix, "keysRadix", AVG_GAUSS_TILE,
+                               true);
+  CreateWriteBuffers<uint64_t>(_buffers.keys, "keys", AVG_GAUSS_TILE, true);
+  CreateWriteBuffers<uint32_t>(_buffers.values, "values", true, AVG_GAUSS_TILE);
+  CreateWriteBuffers<uint32_t>(_buffers.valuesRadix, "valuesRadix",
                                AVG_GAUSS_TILE, true);
-  CreateWriteBuffers<uint64_t>(_buffers.keysSorted, "keysSorted",
-                               AVG_GAUSS_TILE, true);
-  CreateWriteBuffers<uint32_t>(_buffers.valuesSorted, "valuesSorted", true,
-                               AVG_GAUSS_TILE);
-  CreateWriteBuffers<uint32_t>(_buffers.valuesUnsorted, "valuesUnsorted",
-                               AVG_GAUSS_TILE, true);
+  CreateWriteBuffers<uint32_t>(_buffers.histogram, "histogram", 10, true);
   // ranges
 }
 
@@ -177,7 +176,7 @@ void GaussianRenderer::CreateCopyStagingBuffer() {
   VkDevice device = _vulkanContext.GetLogicalDevice();
   VkPhysicalDevice physicalDevice = _vulkanContext.GetPhysicalDevice();
 
-  VkDeviceSize bufferSize = sizeof(int) * 10000;
+  VkDeviceSize bufferSize = sizeof(int);
 
   _buffers.numRendered.staging = _bufferManager.CreateBuffer(
       device, physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT,

@@ -36,6 +36,25 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   SetupDescriptorSet(PipelineType::ASSIGN_TILE_IDS);
   UpdateAllDescriptorSets(PipelineType::ASSIGN_TILE_IDS);
 
+  CreateDescriptorSetLayout(PipelineType::RADIX_HISTOGRAM_0);
+  CreateComputePipeline("src/Shaders/histogram.spv",
+                        PipelineType::RADIX_HISTOGRAM_0, 4);
+  CreateDescriptorSetLayout(PipelineType::RADIX_SCATTER_0);
+  CreateComputePipeline("src/Shaders/sort.spv", PipelineType::RADIX_SCATTER_0,
+                        4);
+
+  SetupDescriptorSet(PipelineType::RADIX_HISTOGRAM_0);
+  UpdateAllDescriptorSets(PipelineType::RADIX_HISTOGRAM_0);
+
+  SetupDescriptorSet(PipelineType::RADIX_HISTOGRAM_1);
+  UpdateAllDescriptorSets(PipelineType::RADIX_HISTOGRAM_1);
+
+  SetupDescriptorSet(PipelineType::RADIX_SCATTER_0);
+  UpdateAllDescriptorSets(PipelineType::RADIX_SCATTER_0);
+
+  SetupDescriptorSet(PipelineType::RADIX_SCATTER_1);
+  UpdateAllDescriptorSets(PipelineType::RADIX_SCATTER_1);
+
   CreateSynchronization();
 
   // RecordAllCommandBuffers();
@@ -252,10 +271,22 @@ void ComputePipeline::SetupDescriptorSet(const PipelineType pType) {
   // Resize vector to hold one descriptor set per swapchain image
   _descriptorSets[pType].resize(swapchainImageCount);
 
-  // Create layout array (same layout for all sets)
-  std::vector<VkDescriptorSetLayout> layouts(swapchainImageCount,
-                                             _descriptorSetLayouts[pType]);
+  std::vector<VkDescriptorSetLayout> layouts;
 
+  if (pType == PipelineType::RADIX_HISTOGRAM_1) {
+    layouts = std::vector<VkDescriptorSetLayout>(
+        swapchainImageCount,
+        _descriptorSetLayouts[PipelineType::RADIX_HISTOGRAM_0]);
+  } else if (pType == PipelineType::RADIX_SCATTER_1) {
+    layouts = std::vector<VkDescriptorSetLayout>(
+        swapchainImageCount,
+        _descriptorSetLayouts[PipelineType::RADIX_SCATTER_0]);
+  } else {
+    layouts = std::vector<VkDescriptorSetLayout>(swapchainImageCount,
+                                                 _descriptorSetLayouts[pType]);
+  }
+
+  // Now 'layouts' is accessible here
   // Allocate all descriptor sets at once
   VkDescriptorSetAllocateInfo allocInfo = {};
   allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -420,13 +451,120 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
                        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier, 0,
                        nullptr, 0, nullptr);
 
-  VkBufferCopy copyRegion = {};
-  copyRegion.srcOffset = (numRendered - 100) * sizeof(uint32_t);
-  copyRegion.dstOffset = 0;
-  copyRegion.size = 100 * sizeof(uint32_t);
+  ////////////////////////////////////////////////////////////////////////////////////////
+  //
+  //
+  //
+  //
+  VkMemoryBarrier barrier_t = {};
+  barrier_t.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+  barrier_t.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+  barrier_t.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT; // For presentation
 
-  vkCmdCopyBuffer(commandBuffer, _gaussianBuffers.valuesUnsorted,
-                  _gaussianBuffers.numRendered.staging, 1, &copyRegion);
+  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier_t,
+                       0, nullptr, 0, nullptr);
+  uint32_t numElementsToSort =
+      numRendered; // This should be the total gaussian-tile pairs
+
+  // Calculate workgroups for radix sort
+  uint32_t elementsPerWorkgroup =
+      WORKGROUP_SIZE * blocks_per_workgroup; // 256 * 32 = 8192
+  uint32_t numWorkgroups =
+      (numElementsToSort + elementsPerWorkgroup - 1) / elementsPerWorkgroup;
+
+  // Prepare push constants
+  struct RadixPushConstants {
+    uint32_t g_num_elements;
+    uint32_t g_shift;
+    uint32_t g_num_workgroups;
+    uint32_t g_num_blocks_per_workgroup;
+  } radixPC;
+
+  radixPC.g_num_elements = numElementsToSort;
+  radixPC.g_num_workgroups = numWorkgroups;
+  radixPC.g_num_blocks_per_workgroup = blocks_per_workgroup;
+
+  // Perform 6 passes of radix sort (tiles_ID always can be represented with
+  // 2 bits)
+  for (uint32_t pass = 0; pass < 6; pass++) {
+    radixPC.g_shift = pass * 8;
+
+    bool isEven = (pass % 2 == 0);
+
+    // HISTOGRAM PASS
+    PipelineType histType = isEven ? PipelineType::RADIX_HISTOGRAM_0
+                                   : PipelineType::RADIX_HISTOGRAM_1;
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                      _computePipelines[PipelineType::RADIX_HISTOGRAM_0]);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                            _pipelineLayouts[PipelineType::RADIX_HISTOGRAM_0],
+                            0, 1, &_descriptorSets[histType][imageIndex], 0,
+                            nullptr);
+    vkCmdPushConstants(
+        commandBuffer, _pipelineLayouts[PipelineType::RADIX_HISTOGRAM_0],
+        VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(RadixPushConstants), &radixPC);
+    vkCmdDispatch(commandBuffer, numWorkgroups, 1, 1);
+
+    VkMemoryBarrier histBarrier = {};
+    histBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    histBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    histBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+                         &histBarrier, 0, nullptr, 0, nullptr);
+
+    // SCATTER PASS
+    PipelineType scatterType =
+        isEven ? PipelineType::RADIX_SCATTER_0 : PipelineType::RADIX_SCATTER_1;
+
+    vkCmdBindPipeline(
+        commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+        _computePipelines[PipelineType::RADIX_SCATTER_0]); // Use same pipeline
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                            _pipelineLayouts[PipelineType::RADIX_SCATTER_0], 0,
+                            1, &_descriptorSets[scatterType][imageIndex], 0,
+                            nullptr);
+    vkCmdPushConstants(
+        commandBuffer, _pipelineLayouts[PipelineType::RADIX_SCATTER_0],
+        VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(RadixPushConstants), &radixPC);
+    vkCmdDispatch(commandBuffer, numWorkgroups, 1, 1);
+
+    if (pass < 5) {
+      VkMemoryBarrier scatterBarrier = {};
+      scatterBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+      scatterBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+      scatterBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+      vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+                           &scatterBarrier, 0, nullptr, 0, nullptr);
+    }
+  }
+
+  VkMemoryBarrier finalBarrier = {};
+  finalBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+  finalBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+  finalBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+                       &finalBarrier, 0, nullptr, 0, nullptr);
+
+  // VkBufferCopy copyRegion = {};
+  // copyRegion.srcOffset = 0;
+  // copyRegion.dstOffset = 0;
+  // copyRegion.size = 1000 * sizeof(uint64_t);
+
+  // vkCmdCopyBuffer(commandBuffer, _gaussianBuffers.keys,
+  //                 _gaussianBuffers.numRendered.staging, 1, &copyRegion);
+
+  // VkBufferCopy copyRegionx = {};
+  // copyRegionx.srcOffset = (numRendered - 1001) * sizeof(uint64_t);
+  // copyRegionx.dstOffset = 1000 * sizeof(uint64_t);
+  // copyRegionx.size = 1000 * sizeof(uint64_t);
+
+  // vkCmdCopyBuffer(commandBuffer, _gaussianBuffers.keys,
+  //                 _gaussianBuffers.numRendered.staging, 1, &copyRegionx);
 
   /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -522,10 +660,6 @@ void ComputePipeline::RenderFrame() {
   vkResetFences(_vkContext.GetLogicalDevice(), 1,
                 &_preprocessFences[_currentFrame]);
 
-  uint32_t *v = reinterpret_cast<uint32_t *>(_gaussianBuffers.numRendered.mem);
-  for (int k = 0; k < 100; k++) {
-    std::cout << v[k] << std::endl;
-  }
   uint32_t imageIndex;
   VkResult result = vkAcquireNextImageKHR(
       _vkContext.GetLogicalDevice(), _vkContext.GetSwapchain(), UINT64_MAX,
@@ -655,18 +789,20 @@ VkBuffer ComputePipeline::GetBufferByName(const std::string &bufferName) {
     return _gaussianBuffers.tilesTouchedPrefixSum;
   if (bufferName == "boundingBox")
     return _gaussianBuffers.boundingBox;
-  if (bufferName == "keysUnsorted")
-    return _gaussianBuffers.keysUnsorted;
-  if (bufferName == "valuesUnsorted")
-    return _gaussianBuffers.valuesUnsorted;
-  if (bufferName == "keysSorted")
-    return _gaussianBuffers.keysSorted;
-  if (bufferName == "valuesSsorted")
-    return _gaussianBuffers.valuesSorted;
+  if (bufferName == "keys")
+    return _gaussianBuffers.keys;
+  if (bufferName == "values")
+    return _gaussianBuffers.values;
+  if (bufferName == "keysRadix")
+    return _gaussianBuffers.keysRadix;
+  if (bufferName == "valuesRadix")
+    return _gaussianBuffers.valuesRadix;
   if (bufferName == "ranges")
     return _gaussianBuffers.ranges;
   if (bufferName == "prefixResult")
     return _resultBufferPrefix;
+  if (bufferName == "histograms")
+    return _gaussianBuffers.histogram;
 
   throw std::runtime_error("Unknown buffer name: " + bufferName);
 }
@@ -710,32 +846,51 @@ void ComputePipeline::resizeBuffers(uint32_t size) {
   VkPhysicalDevice physicalDevice = _vkContext.GetPhysicalDevice();
   VkDevice device = _vkContext.GetLogicalDevice();
 
-  _buffManager->DestroyBuffer(device, _gaussianBuffers.valuesSorted);
-  _buffManager->DestroyBuffer(device, _gaussianBuffers.valuesUnsorted);
-  _buffManager->DestroyBuffer(device, _gaussianBuffers.keysSorted);
-  _buffManager->DestroyBuffer(device, _gaussianBuffers.keysUnsorted);
+  _buffManager->DestroyBuffer(device, _gaussianBuffers.valuesRadix);
+  _buffManager->DestroyBuffer(device, _gaussianBuffers.values);
+  _buffManager->DestroyBuffer(device, _gaussianBuffers.keys);
+  _buffManager->DestroyBuffer(device, _gaussianBuffers.keysRadix);
+  _buffManager->DestroyBuffer(device, _gaussianBuffers.histogram);
 
   VkDeviceSize bufferSizeKey = sizeof(int64_t) * size;
   VkDeviceSize bufferSizeValue = sizeof(int32_t) * size;
+
+  uint32_t elementsPerWorkgroup =
+      WORKGROUP_SIZE * blocks_per_workgroup; // 256 * 32 = 8192
+  uint32_t numWorkgroups =
+      (size + elementsPerWorkgroup - 1) / elementsPerWorkgroup;
+  VkDeviceSize histogramSize =
+      RADIX_SORT_BINS * numWorkgroups * sizeof(uint32_t);
+
   VkBufferUsageFlags usage =
       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
-  _gaussianBuffers.keysUnsorted =
+  _gaussianBuffers.keys =
       _buffManager->CreateBuffer(device, physicalDevice, bufferSizeKey, usage,
                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  _gaussianBuffers.keysSorted =
+  _gaussianBuffers.keysRadix =
       _buffManager->CreateBuffer(device, physicalDevice, bufferSizeKey, usage,
                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  _gaussianBuffers.valuesSorted =
+  _gaussianBuffers.values =
       _buffManager->CreateBuffer(device, physicalDevice, bufferSizeValue, usage,
                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  _gaussianBuffers.valuesUnsorted =
+  _gaussianBuffers.valuesRadix =
       _buffManager->CreateBuffer(device, physicalDevice, bufferSizeValue, usage,
+                                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  _gaussianBuffers.histogram =
+      _buffManager->CreateBuffer(device, physicalDevice, histogramSize, usage,
                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
   _sizeBufferMax = size;
   UpdateAllDescriptorSets(PipelineType::ASSIGN_TILE_IDS);
-  std::cout << "resize Buffer" << std::endl;
+  UpdateAllDescriptorSets(PipelineType::RADIX_HISTOGRAM_0);
+  UpdateAllDescriptorSets(PipelineType::RADIX_HISTOGRAM_1);
+  UpdateAllDescriptorSets(PipelineType::RADIX_SCATTER_0);
+  UpdateAllDescriptorSets(PipelineType::RADIX_SCATTER_1);
+
+  std::cout << "resize Buffers and update Descriptors" << std::endl;
 }
+
+void ComputePipeline::SetUpRadixBuffers() {}
 
 void ComputePipeline::RecordAllCommandBuffers() {}
 
@@ -774,7 +929,7 @@ void ComputePipeline::BindBufferToDescriptor(const PipelineType pType,
 
   VkWriteDescriptorSet descriptorWrite = {};
   descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  descriptorWrite.dstSet = _descriptorSets[pType][i]; // Specific descriptor set
+  descriptorWrite.dstSet = _descriptorSets[pType][i];
   descriptorWrite.dstBinding = bindingIndex;
   descriptorWrite.dstArrayElement = 0;
   descriptorWrite.descriptorType = descriptorType;
@@ -783,7 +938,4 @@ void ComputePipeline::BindBufferToDescriptor(const PipelineType pType,
 
   vkUpdateDescriptorSets(_vkContext.GetLogicalDevice(), 1, &descriptorWrite, 0,
                          nullptr);
-
-  std::cout << "Descriptor set " << i << "  Buffer " << i << "type"
-            << static_cast<int>(descriptorType) << std::endl;
 }
