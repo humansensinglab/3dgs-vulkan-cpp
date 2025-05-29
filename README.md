@@ -103,29 +103,6 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 
 Make high-performance neural radiance field rendering accessible on **any GPU**, **any platform**, fully **open source**, without proprietary dependencies.
 
-**Impact**: Enable 3DGS adoption in:
-- Cross-platform applications and games
-- Cloud rendering infrastructure  
-- Mobile AR/VR experiences
-- Academic research without hardware constraints
-
----
-
-## 🚀 Getting Started
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/vulkan-3dgs.git
-cd vulkan-3dgs
-
-# Build (requires Vulkan SDK)
-mkdir build && cd build
-cmake ..
-make -j8
-
-# Run with sample data
-./vulkan-3dgs path/to/gaussians.ply
-```
 
 **Requirements**:
 - Vulkan 1.3 compatible GPU and drivers
@@ -147,4 +124,4 @@ This project aims to advance open 3DGS rendering. Contributions welcome for:
 
 ## 📄 License
 
-Open source - see LICENSE file for details.
+MIT 
