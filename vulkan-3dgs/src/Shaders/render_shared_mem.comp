@@ -1,0 +1,142 @@
+#version 450
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
+
+#define BLOCK_SIZE 256
+#define CHANNELS 3
+#define TILE_WIDTH 16
+#define TILE_HEIGHT 16
+
+// Shared memory for batch processing
+shared uint collected_id[BLOCK_SIZE];
+shared vec2 collected_xy[BLOCK_SIZE];
+shared vec4 collected_conic_opacity[BLOCK_SIZE];
+shared vec3 collected_color[BLOCK_SIZE];
+
+// Shared memory for done voting 
+shared uint done_count;
+
+layout (std430, set = 0, binding = 0) readonly buffer Ranges {
+    uvec2 ranges[];
+};
+
+layout (std430, set = 0, binding = 1) readonly buffer Values {
+    uint gaussianId[];
+};
+
+layout (std430, set = 0, binding = 2) readonly buffer Rgb {
+    vec3 color[];
+};
+
+layout (std430, set = 0, binding = 3) readonly buffer conicOpacity {
+    vec4 conic[];
+};
+
+layout (std430, set = 0, binding = 4) readonly buffer pointsXY {
+    vec2 pos2d[];
+};
+
+layout(set = 0, binding = 5, rgba8) uniform writeonly image2D outputImage;
+
+layout( push_constant ) uniform Constants {
+    uint width;
+    uint height;
+};
+
+layout (local_size_x = TILE_WIDTH, local_size_y = TILE_HEIGHT, local_size_z = 1) in;
+
+void main() {
+    uint tileX = gl_WorkGroupID.x;
+    uint tileY = gl_WorkGroupID.y;
+    uint localX = gl_LocalInvocationID.x;
+    uint localY = gl_LocalInvocationID.y;
+    
+    uvec2 curr_pixel = uvec2(tileX * TILE_WIDTH + localX, tileY * TILE_HEIGHT + localY);
+    
+    if (curr_pixel.x >= width || curr_pixel.y >= height) {
+        return;
+    }
+    
+    uint tiles_width = (width + TILE_WIDTH - 1) / TILE_WIDTH;
+    uint tile_id = tileX + tileY * tiles_width;
+    
+    uint range_start = ranges[tile_id].x;
+    uint range_end = ranges[tile_id].y;
+    
+    float T = 1.0f;
+    vec3 C = vec3(0.0f);
+    bool done = false;
+    
+    uint thread_idx = localY * TILE_WIDTH + localX;
+    
+    uint toDo = range_end - range_start;
+    uint rounds = (toDo + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    
+    for (uint i = 0; i < rounds; i++) {
+        // Early exit check using shared memory voting
+        barrier();
+        if (done) {
+            // Initialize done counter
+            if (thread_idx == 0) {
+                done_count = 0;
+            }
+            barrier();
+            
+            if (done) {
+                atomicAdd(done_count, 1);
+            }
+            barrier();
+            
+            if (done_count == TILE_WIDTH * TILE_HEIGHT) {
+                break;
+            }
+        }
+        
+       
+        uint progress = i * BLOCK_SIZE + thread_idx;
+        if (progress < toDo) {
+            uint sorted_idx = range_start + progress;
+            uint gaussian_idx = gaussianId[sorted_idx];
+            
+            collected_id[thread_idx] = gaussian_idx;
+            collected_xy[thread_idx] = pos2d[gaussian_idx];
+            collected_conic_opacity[thread_idx] = conic[gaussian_idx];
+            collected_color[thread_idx] = color[gaussian_idx];
+        }
+        
+        // Synchronize to ensure all data is loaded
+        barrier();
+        
+        uint batch_size = min(BLOCK_SIZE, toDo - i * BLOCK_SIZE);
+        for (uint j = 0; j < batch_size && !done; j++) {
+            // Get data from shared memory
+            vec2 xy = collected_xy[j];
+            vec2 d = xy - vec2(curr_pixel);
+            vec4 con_o = collected_conic_opacity[j];
+            
+            float power = -0.5f * (con_o.x * d.x * d.x + con_o.z * d.y * d.y) - con_o.y * d.x * d.y;
+            if (power > 0.0f) {
+                continue;
+            }
+            
+           
+            float alpha = min(0.99f, con_o.w * exp(power));
+            if (alpha < 1.0f / 255.0f) {
+                continue;
+            }
+            
+            float test_T = T * (1.0f - alpha);
+            if (test_T < 0.0001f) {
+                done = true;
+                break;
+            }
+            
+            vec3 col = collected_color[j];
+            C += col * alpha * T;
+            T = test_T;
+        }
+        
+    }
+    
+    // Write final color (with alpha for transparency)
+    imageStore(outputImage, ivec2(curr_pixel), vec4(C, 1.0f - T));
+}

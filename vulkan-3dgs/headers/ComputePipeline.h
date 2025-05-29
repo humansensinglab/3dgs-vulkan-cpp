@@ -11,6 +11,8 @@
 #include <iostream>
 #include <map>
 
+#define SHARED_MEM_RENDERING
+
 const uint32_t WORKGROUP_SIZE = 256;
 const uint32_t RADIX_SORT_BINS = 256;
 const uint32_t blocks_per_workgroup = 32;
@@ -92,7 +94,7 @@ private:
   void UpdateAllDescriptorSets(const PipelineType pType);
   void RecordAllCommandBuffers();
   void BindImageToDescriptor(const PipelineType pType, uint32_t i,
-                             VkImageView view);
+                             VkImageView view, uint32_t binding);
 
   void BindBufferToDescriptor(const PipelineType pType, uint32_t bindingIndex,
                               uint32_t i, VkBuffer buffer,
@@ -214,6 +216,19 @@ private:
         {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
          "ranges"}}},
 
+      {PipelineType::RENDER,
+       {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "ranges"},
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "values"},
+        {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "rgb"},
+        {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "conicOpacity"},
+        {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "pointsXY"},
+        {5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "outputImage"}}},
   };
 
   int _sizeBufferMax = 0;

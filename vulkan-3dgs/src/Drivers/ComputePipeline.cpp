@@ -25,10 +25,10 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   SetupDescriptorSet(PipelineType::PREFIXSUM);
   UpdateAllDescriptorSets(PipelineType::PREFIXSUM);
 
-  CreateDescriptorSetLayout(PipelineType::NEAREST);
-  CreateComputePipeline("src/Shaders/nearest.spv", PipelineType::NEAREST);
-  SetupDescriptorSet(PipelineType::NEAREST);
-  UpdateAllDescriptorSets(PipelineType::NEAREST);
+  /* CreateDescriptorSetLayout(PipelineType::NEAREST);
+   CreateComputePipeline("src/Shaders/nearest.spv", PipelineType::NEAREST);
+   SetupDescriptorSet(PipelineType::NEAREST);
+   UpdateAllDescriptorSets(PipelineType::NEAREST);*/
 
   CreateDescriptorSetLayout(PipelineType::ASSIGN_TILE_IDS);
   CreateComputePipeline("src/Shaders/idkeys.spv", PipelineType::ASSIGN_TILE_IDS,
@@ -60,6 +60,16 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
                         PipelineType::TILE_BOUNDARIES, 1);
   SetupDescriptorSet(PipelineType::TILE_BOUNDARIES);
   UpdateAllDescriptorSets(PipelineType::TILE_BOUNDARIES);
+
+  CreateDescriptorSetLayout(PipelineType::RENDER);
+#ifdef SHARED_MEM_RENDERING
+  CreateComputePipeline("src/Shaders/render_shared.spv", PipelineType::RENDER,
+                        2);
+#else
+  CreateComputePipeline("src/Shaders/render.spv", PipelineType::RENDER, 1);
+#endif
+  SetupDescriptorSet(PipelineType::RENDER);
+  UpdateAllDescriptorSets(PipelineType::RENDER);
 
   CreateSynchronization();
 
@@ -578,13 +588,22 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
   ///////////////////////////////////////////////////////////////////////////////////////////
 
   vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                    _computePipelines[PipelineType::NEAREST]);
+                    _computePipelines[PipelineType::RENDER]);
+
+  struct {
+    uint32_t w;
+    uint32_t h;
+  } pcRender = {extent.width, extent.height};
+
+  vkCmdPushConstants(commandBuffer, _pipelineLayouts[PipelineType::RENDER],
+                     VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pcRender),
+                     &pcRender);
 
   // Bind descriptor set
   vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                          _pipelineLayouts[PipelineType::NEAREST], 0, 1,
-                          &_descriptorSets[PipelineType::NEAREST][imageIndex],
-                          0, nullptr);
+                          _pipelineLayouts[PipelineType::RENDER], 0, 1,
+                          &_descriptorSets[PipelineType::RENDER][imageIndex], 0,
+                          nullptr);
 
   vkCmdDispatch(commandBuffer, (extent.width + 15) / 16,
                 (extent.height + 15) / 16, 1);
@@ -758,7 +777,8 @@ void ComputePipeline::UpdateAllDescriptorSets(const PipelineType pType) {
   for (const auto &descriptor : SHADER_LAYOUTS[pType]) {
     for (uint32_t i = 0; i < swapchainImages.size(); i++) {
       if (descriptor.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-        BindImageToDescriptor(pType, i, swapchainImages[i].imageView);
+        BindImageToDescriptor(pType, i, swapchainImages[i].imageView,
+                              descriptor.binding);
       else {
         BindBufferToDescriptor(pType, descriptor.binding, i,
                                GetBufferByName(descriptor.name),
@@ -896,6 +916,7 @@ void ComputePipeline::resizeBuffers(uint32_t size) {
   UpdateAllDescriptorSets(PipelineType::RADIX_SCATTER_0);
   UpdateAllDescriptorSets(PipelineType::RADIX_SCATTER_1);
   UpdateAllDescriptorSets(PipelineType::TILE_BOUNDARIES);
+  UpdateAllDescriptorSets(PipelineType::RENDER);
 
   std::cout << "resize Buffers and update Descriptors" << std::endl;
 }
@@ -905,7 +926,8 @@ void ComputePipeline::SetUpRadixBuffers() {}
 void ComputePipeline::RecordAllCommandBuffers() {}
 
 void ComputePipeline::BindImageToDescriptor(const PipelineType pType,
-                                            uint32_t i, VkImageView view) {
+                                            uint32_t i, VkImageView view,
+                                            uint32_t binding) {
   VkDescriptorImageInfo imageInfo = {};
   imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
   imageInfo.imageView = view;
@@ -914,7 +936,7 @@ void ComputePipeline::BindImageToDescriptor(const PipelineType pType,
   VkWriteDescriptorSet descriptorWrite = {};
   descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
   descriptorWrite.dstSet = _descriptorSets[pType][i]; // Specific descriptor set
-  descriptorWrite.dstBinding = 0;
+  descriptorWrite.dstBinding = binding;
   descriptorWrite.dstArrayElement = 0;
   descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
   descriptorWrite.descriptorCount = 1;
