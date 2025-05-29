@@ -54,7 +54,7 @@ private:
                           int dst = false);
   void CreateUniformBuffer();
   void CreateCopyStagingBuffer();
-
+  void CreateRangesBuffer();
   GaussianBuffers _buffers;
   std::unique_ptr<Camera> _camera;
   int _shDegree;

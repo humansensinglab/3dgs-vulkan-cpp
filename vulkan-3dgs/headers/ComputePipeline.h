@@ -36,7 +36,9 @@ enum class PipelineType {
   RADIX_HISTOGRAM_0,
   RADIX_HISTOGRAM_1,
   RADIX_SCATTER_0,
-  RADIX_SCATTER_1
+  RADIX_SCATTER_1,
+  TILE_BOUNDARIES,
+  RENDER
 };
 
 class ComputePipeline {
@@ -172,39 +174,45 @@ private:
 
       {PipelineType::RADIX_HISTOGRAM_0,
        {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "keys"}, // reads from unsorted on even passes
+         "keys"},
         {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
          "histograms"}}},
 
       {PipelineType::RADIX_HISTOGRAM_1,
        {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "keysRadix"}, // reads from sorted on odd passes
+         "keysRadix"},
         {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
          "histograms"}}},
 
       {PipelineType::RADIX_SCATTER_0,
        {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "keys"}, // binding 0: read from unsorted
+         "keys"},
         {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "keysRadix"}, // binding 1: write to sorted
+         "keysRadix"},
         {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "values"}, // binding 2: read from unsorted
+         "values"},
         {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "valuesRadix"}, // binding 3: write to sorted
+         "valuesRadix"},
         {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
          "histograms"}}},
 
       {PipelineType::RADIX_SCATTER_1,
        {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "keysRadix"}, // binding 0: read from sorted
+         "keysRadix"},
         {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "keys"}, // binding 1: write to unsorted
+         "keys"},
         {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "valuesRadix"}, // binding 2: read from sorted
+         "valuesRadix"},
         {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "values"}, // binding 3: write to unsorted
+         "values"},
         {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
-         "histograms"}}}
+         "histograms"}}},
+
+      {PipelineType::TILE_BOUNDARIES,
+       {{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "keys"},
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "ranges"}}},
 
   };
 

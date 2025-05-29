@@ -55,6 +55,12 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   SetupDescriptorSet(PipelineType::RADIX_SCATTER_1);
   UpdateAllDescriptorSets(PipelineType::RADIX_SCATTER_1);
 
+  CreateDescriptorSetLayout(PipelineType::TILE_BOUNDARIES);
+  CreateComputePipeline("src/Shaders/boundaries.spv",
+                        PipelineType::TILE_BOUNDARIES, 1);
+  SetupDescriptorSet(PipelineType::TILE_BOUNDARIES);
+  UpdateAllDescriptorSets(PipelineType::TILE_BOUNDARIES);
+
   CreateSynchronization();
 
   // RecordAllCommandBuffers();
@@ -452,10 +458,7 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
                        nullptr, 0, nullptr);
 
   ////////////////////////////////////////////////////////////////////////////////////////
-  //
-  //
-  //
-  //
+
   VkMemoryBarrier barrier_t = {};
   barrier_t.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
   barrier_t.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
@@ -464,10 +467,8 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
   vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier_t,
                        0, nullptr, 0, nullptr);
-  uint32_t numElementsToSort =
-      numRendered; // This should be the total gaussian-tile pairs
+  uint32_t numElementsToSort = numRendered;
 
-  // Calculate workgroups for radix sort
   uint32_t elementsPerWorkgroup =
       WORKGROUP_SIZE * blocks_per_workgroup; // 256 * 32 = 8192
   uint32_t numWorkgroups =
@@ -542,31 +543,39 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
     }
   }
 
-  VkMemoryBarrier finalBarrier = {};
-  finalBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-  finalBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-  finalBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+  VkMemoryBarrier finalSortBarrier = {};
+  finalSortBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+  finalSortBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+  finalSortBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
   vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
-                       &finalBarrier, 0, nullptr, 0, nullptr);
-
-  // VkBufferCopy copyRegion = {};
-  // copyRegion.srcOffset = 0;
-  // copyRegion.dstOffset = 0;
-  // copyRegion.size = 1000 * sizeof(uint64_t);
-
-  // vkCmdCopyBuffer(commandBuffer, _gaussianBuffers.keys,
-  //                 _gaussianBuffers.numRendered.staging, 1, &copyRegion);
-
-  // VkBufferCopy copyRegionx = {};
-  // copyRegionx.srcOffset = (numRendered - 1001) * sizeof(uint64_t);
-  // copyRegionx.dstOffset = 1000 * sizeof(uint64_t);
-  // copyRegionx.size = 1000 * sizeof(uint64_t);
-
-  // vkCmdCopyBuffer(commandBuffer, _gaussianBuffers.keys,
-  //                 _gaussianBuffers.numRendered.staging, 1, &copyRegionx);
+                       &finalSortBarrier, 0, nullptr, 0, nullptr);
 
   /////////////////////////////////////////////////////////////////////////////////////////
+  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                    _computePipelines[PipelineType::TILE_BOUNDARIES]);
+
+  vkCmdPushConstants(
+      commandBuffer, _pipelineLayouts[PipelineType::TILE_BOUNDARIES],
+      VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(uint32_t), &numRendered);
+
+  // Bind descriptor set
+  vkCmdBindDescriptorSets(
+      commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+      _pipelineLayouts[PipelineType::TILE_BOUNDARIES], 0, 1,
+      &_descriptorSets[PipelineType::TILE_BOUNDARIES][imageIndex], 0, nullptr);
+
+  vkCmdDispatch(commandBuffer, (numRendered + 255) / 256, 1, 1);
+
+  VkMemoryBarrier tilesBarrier = {};
+  tilesBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+  tilesBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+  tilesBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+                       &tilesBarrier, 0, nullptr, 0, nullptr);
+
+  ///////////////////////////////////////////////////////////////////////////////////////////
 
   vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
                     _computePipelines[PipelineType::NEAREST]);
@@ -886,6 +895,7 @@ void ComputePipeline::resizeBuffers(uint32_t size) {
   UpdateAllDescriptorSets(PipelineType::RADIX_HISTOGRAM_1);
   UpdateAllDescriptorSets(PipelineType::RADIX_SCATTER_0);
   UpdateAllDescriptorSets(PipelineType::RADIX_SCATTER_1);
+  UpdateAllDescriptorSets(PipelineType::TILE_BOUNDARIES);
 
   std::cout << "resize Buffers and update Descriptors" << std::endl;
 }

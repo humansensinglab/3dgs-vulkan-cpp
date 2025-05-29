@@ -131,16 +131,13 @@ void GaussianRenderer::CreatePipelineStorageBuffers() {
   CreateWriteBuffers<int>(_buffers.tilesTouchedPrefixSum,
                           "tilesTouchedPrefixSum", 1, true);
   CreateWriteBuffers<glm::vec4>(_buffers.boundingBox, "boundingBox");
-  CreateWriteBuffers<uint64_t>(_buffers.keysRadix, "keysRadix", AVG_GAUSS_TILE,
-                               true);
-  CreateWriteBuffers<uint64_t>(_buffers.keys, "keys", AVG_GAUSS_TILE, true);
-  CreateWriteBuffers<uint32_t>(_buffers.values, "values", true, AVG_GAUSS_TILE);
-  CreateWriteBuffers<uint32_t>(_buffers.valuesRadix, "valuesRadix",
-                               AVG_GAUSS_TILE, true);
+  CreateWriteBuffers<uint64_t>(_buffers.keysRadix, "keysRadix", 10, true);
+  CreateWriteBuffers<uint64_t>(_buffers.keys, "keys", 10, true);
+  CreateWriteBuffers<uint32_t>(_buffers.values, "values", true, 10);
+  CreateWriteBuffers<uint32_t>(_buffers.valuesRadix, "valuesRadix", 10, true);
   CreateWriteBuffers<uint32_t>(_buffers.histogram, "histogram", 10, true);
-  // ranges
+  CreateRangesBuffer();
 }
-
 void GaussianRenderer::UpdateCameraUniforms() {
   CameraUniforms uniforms = _camera->getUniforms();
   uniforms.shDegree = _shDegree;
@@ -176,7 +173,7 @@ void GaussianRenderer::CreateCopyStagingBuffer() {
   VkDevice device = _vulkanContext.GetLogicalDevice();
   VkPhysicalDevice physicalDevice = _vulkanContext.GetPhysicalDevice();
 
-  VkDeviceSize bufferSize = sizeof(int);
+  VkDeviceSize bufferSize = sizeof(int) * 100;
 
   _buffers.numRendered.staging = _bufferManager.CreateBuffer(
       device, physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
@@ -186,4 +183,15 @@ void GaussianRenderer::CreateCopyStagingBuffer() {
   vkMapMemory(device,
               _bufferManager.GetBufferMemory(_buffers.numRendered.staging), 0,
               bufferSize, 0, &_buffers.numRendered.mem);
+}
+
+void GaussianRenderer::CreateRangesBuffer() {
+  VkExtent2D ext = _vulkanContext.GetSwapchainExtent();
+  int tiles = (ext.width + 15) / 16 + (ext.height + 15) / 16;
+
+  _buffers.ranges = _bufferManager.CreateBuffer(
+      _vulkanContext.GetLogicalDevice(), _vulkanContext.GetPhysicalDevice(),
+      sizeof(glm::vec2) * tiles,
+      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 }
