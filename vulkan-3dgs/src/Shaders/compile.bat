@@ -7,3 +7,4 @@ C:\VulkanSDK\1.3.290.0\Bin\glslangValidator.exe -V --target-env spirv1.5 radix_s
 C:\VulkanSDK\1.3.290.0\Bin\glslangValidator.exe -V --target-env spirv1.5 idkeys.comp -o idkeys.spv
 C:\VulkanSDK\1.3.290.0\Bin\glslangValidator.exe -V --target-env spirv1.3 tile_boundaries.comp -o boundaries.spv
 C:\VulkanSDK\1.3.290.0\Bin\glslangValidator.exe -V --target-env spirv1.5 render_shared_mem.comp -o render_shared.spv
+C:\VulkanSDK\1.3.290.0\Bin\glslangValidator.exe -V --target-env spirv1.5 render.comp -o render.spv

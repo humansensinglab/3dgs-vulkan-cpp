@@ -26,11 +26,11 @@ public:
   ~GaussianBase(){};
 
   // Data vectors
-  std::vector<glm::vec3> _xyz;
+  std::vector<glm::vec4> _xyz;
   std::vector<glm::vec3> _normals;
   std::vector<float> _shCoefficients;
   std::vector<float> _opacities;
-  std::vector<glm::vec3> _scales;
+  std::vector<glm::vec4> _scales;
   std::vector<glm::vec4> _rotations;
 
   size_t _numGaussians = 0;

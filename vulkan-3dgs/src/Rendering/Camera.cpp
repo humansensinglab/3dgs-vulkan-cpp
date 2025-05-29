@@ -17,7 +17,8 @@ Camera::Camera(int w, int h, float fov, float aspectRatio, float nearPlane,
 }
 
 glm::mat4 Camera::GetViewMatrix() const {
-  return glm::lookAt(_pos, _pos + _front, _up);
+
+  return glm::lookAtLH(_pos, _pos - _front, _up);
 }
 
 glm::mat4 Camera::GetProjectionMatrix() const {

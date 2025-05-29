@@ -29,11 +29,11 @@ layout(push_constant) uniform PushConstants {
 } pc;
 // Input buffers
 layout(binding = 1) readonly buffer GaussianPositions {
-    vec3 positions[];
+    vec4 positions[];
 };
 
 layout(binding = 2) readonly buffer GaussianScales {
-    vec3 scales[];
+    vec4 scales[];
 };
 
 layout(binding = 3) readonly buffer GaussianRotations {
@@ -72,7 +72,7 @@ layout(binding = 8) writeonly buffer OuputDepth {
 };
 
 layout(binding = 9) writeonly buffer OutputRGB {
-    float rgb[];
+    vec4 rgb[];
 };
 
 layout(binding = 10) writeonly buffer OutputConicOpacity {
@@ -115,7 +115,7 @@ float ndc2Pix(float ndc, int size) {
 }
 
 bool inFrustum(int idx, out vec3 pView) {
-    vec3 pos = positions[idx];
+    vec3 pos = positions[idx].xyz;
     pView = transformPoint4x3(pos, camera.viewMatrix);
     
     // Near plane culling
@@ -127,7 +127,7 @@ bool inFrustum(int idx, out vec3 pView) {
 }
 
 vec3 computeColorFromSH(int idx) {
-    vec3 pos = positions[idx];
+    vec3 pos = positions[idx].xyz;
     vec3 dir = normalize(pos - camera.camPos);
     
     // Get base index for this Gaussian's SH coefficients
@@ -278,7 +278,7 @@ vec3 computeCov2D(vec3 mean, float cov3D_data[6]) {
 }
 
 void computeCov3D(int idx, float scaleModifier, out float cov3D_out[6]) {
-    vec3 scale = scales[idx];
+    vec3 scale = scales[idx].xyz;
     vec4 rot = rotations[idx];
     
     // Scaling matrix
@@ -322,7 +322,7 @@ void main() {
 
 
     if (idx < 10) {
-    vec3 scale = scales[idx];
+    vec3 scale = scales[idx].xyz;
     radii[idx] = int(12); // See actual scale values
     }
 
@@ -337,7 +337,7 @@ void main() {
     if (!inFrustum(int(idx), pView)) return;
  
     // Transform to clip space
-    vec3 pOrig = positions[idx];
+    vec3 pOrig = positions[idx].xyz;
     vec4 pHom = transformPoint4x4(pOrig, camera.projMatrix * camera.viewMatrix);
     float pW = 1.0 / (pHom.w + 0.0000001);
     vec3 pProj = pHom.xyz * pW;
@@ -393,7 +393,5 @@ void main() {
     tilesTouched[idx] = uint((rectMax.y - rectMin.y) * (rectMax.x - rectMin.x));
     
     // Store RGB
-    rgb[idx * 3 + 0] = color.r;
-    rgb[idx * 3 + 1] = color.g;
-    rgb[idx * 3 + 2] = color.b;
+    rgb[idx].xyz = color;
 }

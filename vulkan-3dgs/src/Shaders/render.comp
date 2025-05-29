@@ -1,0 +1,99 @@
+#version 450
+#extension GL_EXT_shader_explicit_arithmetic_types_int64 : enable
+
+#define TILE_WIDTH 16
+#define TILE_HEIGHT 16
+
+layout (std430, set = 0, binding = 0) readonly buffer Ranges {
+    uvec2 ranges[];
+};
+
+layout (std430, set = 0, binding = 1) readonly buffer Values {
+    uint gaussianId[];
+};
+
+layout (std430, set = 0, binding = 2) readonly buffer Rgb {
+    vec3 color[];
+};
+
+layout (std430, set = 0, binding = 3) readonly buffer conicOpacity {
+    vec4 conic[];
+};
+
+layout (std430, set = 0, binding = 4) readonly buffer pointsXY {
+    vec2 pos2d[];
+};
+
+layout(set = 0, binding = 5, rgba8) uniform writeonly image2D outputImage;
+
+layout( push_constant ) uniform Constants {
+    uint width;
+    uint height;
+};
+
+layout (local_size_x = TILE_WIDTH, local_size_y = TILE_HEIGHT, local_size_z = 1) in;
+
+void main() {
+    uint tileX = gl_WorkGroupID.x;
+    uint tileY = gl_WorkGroupID.y;
+    uint localX = gl_LocalInvocationID.x;
+    uint localY = gl_LocalInvocationID.y;
+    
+    uvec2 curr_pixel = uvec2(tileX * TILE_WIDTH + localX, tileY * TILE_HEIGHT + localY);
+    
+    if (curr_pixel.x >= width || curr_pixel.y >= height) {
+        return;
+    }
+    
+    uint tiles_width = (width + TILE_WIDTH - 1) / TILE_WIDTH;
+    uint tile_id = tileX + tileY * tiles_width;
+    
+    // Get range for this tile
+    uint start = ranges[tile_id].x;
+    uint end = ranges[tile_id].y;
+    
+    // Initialize accumulation variables
+    float T = 1.0f;
+    vec3 C = vec3(0.0f);
+    
+    // Process all gaussians in this tile
+    for (uint i = start; i < end; i++) {
+        // Get gaussian index from sorted list
+        uint gauss_idx = gaussianId[i];
+        
+        // Get gaussian properties
+        vec2 xy = pos2d[gauss_idx];
+        vec2 d = xy - vec2(curr_pixel);
+        vec4 con_o = conic[gauss_idx];
+        
+        // Compute gaussian weight
+        float power = -0.5f * (con_o.x * d.x * d.x + con_o.z * d.y * d.y) - con_o.y * d.x * d.y;
+        
+        // Skip if outside gaussian
+        if (power > 0.0f) {
+            continue;
+        }
+        
+        // Compute alpha
+        float alpha = min(0.99f, con_o.w * exp(power));
+        
+        // Skip if too transparent
+        if (alpha < 1.0f / 255.0f) {
+            continue;
+        }
+        
+        // Check if we can terminate early
+        float test_T = T * (1.0f - alpha);
+        if (test_T < 0.0001f) {
+            break;
+        }
+        
+        // Accumulate color
+        vec3 col = color[gauss_idx];
+        C += col * alpha * T;
+        T = test_T;
+    }
+    
+    // Write final color
+    imageStore(outputImage, ivec2(curr_pixel), vec4(C, 1.0f - T));
+}

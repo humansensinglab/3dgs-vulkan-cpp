@@ -108,9 +108,9 @@ void GaussianRenderer::CreateGaussianBuffers() {
                "through staging buffers ---"
             << std::endl;
 
-  CreateAndUploadBuffer<glm::vec3>(_buffers.xyz,
+  CreateAndUploadBuffer<glm::vec4>(_buffers.xyz,
                                    _gaussianData->GetPositionsData(), "_xyz");
-  CreateAndUploadBuffer<glm::vec3>(_buffers.scales,
+  CreateAndUploadBuffer<glm::vec4>(_buffers.scales,
                                    _gaussianData->GetScalesData(), "_scale");
   CreateAndUploadBuffer<glm::vec4>(_buffers.rotations,
                                    _gaussianData->GetRotationsData(), "_rot");
@@ -124,7 +124,7 @@ void GaussianRenderer::CreateGaussianBuffers() {
 void GaussianRenderer::CreatePipelineStorageBuffers() {
   CreateWriteBuffers<int>(_buffers.radii, "radii", 1);
   CreateWriteBuffers<float>(_buffers.depth, "depth", 1);
-  CreateWriteBuffers<glm::vec3>(_buffers.color, "color");
+  CreateWriteBuffers<glm::vec4>(_buffers.color, "color");
   CreateWriteBuffers<glm::vec4>(_buffers.conicOpacity, "conicOpacity");
   CreateWriteBuffers<glm::vec2>(_buffers.points2d, "points2d");
   CreateWriteBuffers<int>(_buffers.tilesTouched, "tilesTouched", 1, true);
@@ -154,7 +154,7 @@ void GaussianRenderer::CreateUniformBuffer() {
   VkPhysicalDevice physicalDevice = _vulkanContext.GetPhysicalDevice();
 
   CameraUniforms camUniforms = _camera->getUniforms();
-  camUniforms.shDegree = _shDegree;
+  camUniforms.shDegree = 3;
   VkDeviceSize bufferSize = sizeof(camUniforms);
   std::cout << " Creating uniform buffer : " << bufferSize << " bytes "
             << std::endl;

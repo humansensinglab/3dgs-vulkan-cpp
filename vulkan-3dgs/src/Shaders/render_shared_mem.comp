@@ -24,7 +24,7 @@ layout (std430, set = 0, binding = 1) readonly buffer Values {
 };
 
 layout (std430, set = 0, binding = 2) readonly buffer Rgb {
-    vec3 color[];
+    vec4 color[];
 };
 
 layout (std430, set = 0, binding = 3) readonly buffer conicOpacity {
@@ -100,7 +100,7 @@ void main() {
             collected_id[thread_idx] = gaussian_idx;
             collected_xy[thread_idx] = pos2d[gaussian_idx];
             collected_conic_opacity[thread_idx] = conic[gaussian_idx];
-            collected_color[thread_idx] = color[gaussian_idx];
+            collected_color[thread_idx] = color[gaussian_idx].xyz;
         }
         
         // Synchronize to ensure all data is loaded

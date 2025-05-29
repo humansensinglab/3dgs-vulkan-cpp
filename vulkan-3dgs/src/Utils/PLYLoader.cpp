@@ -108,8 +108,9 @@ bool PLYLoader::ReadVertexData(std::ifstream &file, GaussianBase &data) {
 
     // Apply activations and store with original names
     data._opacities[i] = 1.0f / (1.0f + std::exp(-rawOpacity)); // Sigmoid
-    data._scales[i] = glm::vec3(std::exp(rawScales.x),          // Exp
-                                std::exp(rawScales.y), std::exp(rawScales.z));
+    data._scales[i].x = std::exp(rawScales.x);
+    data._scales[i].y = std::exp(rawScales.y);
+    data._scales[i].z = std::exp(rawScales.z);
     data._rotations[i] = glm::normalize(rawRotation);
   }
 

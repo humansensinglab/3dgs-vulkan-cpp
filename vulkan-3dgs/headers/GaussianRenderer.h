@@ -12,7 +12,7 @@ class GaussianRenderer {
 public:
   GaussianRenderer(VulkanContext &vulkanContext, int shDegree)
       : _vulkanContext(vulkanContext), _bufferManager(),
-        _computePipeline(vulkanContext) {
+        _computePipeline(vulkanContext), _shDegree(shDegree) {
 
     std::cout << "GaussianRenderer created" << std::endl;
   };
@@ -74,6 +74,8 @@ GaussianRenderer::CreateAndUploadBuffer(VkBuffer &buffer, const void *data,
   VkDeviceSize bufferSize = _gaussianData->GetCount() * sizeof(T) * offset;
   std::cout << " Creating " << type << " buffer : " << bufferSize << " bytes "
             << std::endl;
+  buffer =
+      _bufferManager.CreateStorageBuffer(device, physicalDevice, bufferSize);
 
   VkBuffer stagingBuffer = _bufferManager.CreateBuffer(
       device, physicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -85,9 +87,6 @@ GaussianRenderer::CreateAndUploadBuffer(VkBuffer &buffer, const void *data,
   vkMapMemory(device, deviceMem, 0, bufferSize, 0, &mappedMem);
   memcpy(mappedMem, data, static_cast<size_t>(bufferSize));
   vkUnmapMemory(device, deviceMem);
-
-  buffer =
-      _bufferManager.CreateStorageBuffer(device, physicalDevice, bufferSize);
 
   _bufferManager.copyBuffer(device, bufferSize, stagingBuffer, buffer,
                             _vulkanContext.GetCommandPool(),

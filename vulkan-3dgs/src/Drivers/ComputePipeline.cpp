@@ -66,7 +66,7 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   CreateComputePipeline("src/Shaders/render_shared.spv", PipelineType::RENDER,
                         2);
 #else
-  CreateComputePipeline("src/Shaders/render.spv", PipelineType::RENDER, 1);
+  CreateComputePipeline("src/Shaders/render.spv", PipelineType::RENDER, 2);
 #endif
   SetupDescriptorSet(PipelineType::RENDER);
   UpdateAllDescriptorSets(PipelineType::RENDER);
