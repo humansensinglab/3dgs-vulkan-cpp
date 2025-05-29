@@ -11,7 +11,7 @@
 #include <iostream>
 #include <map>
 
-#define SHARED_MEM_RENDERING
+#define NOT_SHARED_MEM_RENDERING
 
 const uint32_t WORKGROUP_SIZE = 256;
 const uint32_t RADIX_SORT_BINS = 256;

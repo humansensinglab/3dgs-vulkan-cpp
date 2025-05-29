@@ -14,7 +14,7 @@ int main() {
   // Load PLY
   int shDegree = 3;
   std::unique_ptr<GaussianBase> gaussianData =
-      PLYLoader::LoadPLY("../stadium.ply", shDegree);
+      PLYLoader::LoadPLY("../point_cloud2.ply", shDegree);
 
   // window
   WindowManager windowManager("Vulkan 3DGS API");

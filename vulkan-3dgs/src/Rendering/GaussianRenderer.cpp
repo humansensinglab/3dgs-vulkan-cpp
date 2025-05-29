@@ -44,8 +44,8 @@ void GaussianRenderer::InitializeCamera(float windowWidth, float windowHeight) {
   _camera = std::make_unique<Camera>(windowWidth, windowHeight, 45.0f,
                                      aspectRatio, 0.1f, 1000.0f);
 
-  _camera->SetMovementSpeed(10.0f);
-  _camera->SetMouseSensitivity(0.1f);
+  _camera->SetMovementSpeed(3.0f);
+  _camera->SetMouseSensitivity(0.04f);
 
   glfwSetWindowUserPointer(_vulkanContext.getWindow(), this);
   // Set up mouse callback
@@ -95,7 +95,7 @@ void GaussianRenderer::processInput(float deltaTime) {
     _camera->ProcessKeyboard(CameraMovement::RIGHT, deltaTime);
   if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
     _camera->ProcessKeyboard(CameraMovement::UP, deltaTime);
-  if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+  if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
     _camera->ProcessKeyboard(CameraMovement::DOWN, deltaTime);
 
   // ESC to exit
