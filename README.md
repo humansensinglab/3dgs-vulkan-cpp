@@ -78,8 +78,8 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 - **Shaders**: GLSL → SPIR-V compilation
 - **Math Library**: [GLM](https://github.com/g-truc/glm) for transforms
 - **Build System**: CMake (cross-platform)
-- **Build System**: [GLFW](https://github.com/g-truc/glm) for cross-platform windowing
-- **Radix Sort:** [VkRadixSort](https://github.com/MichaelMoroz/VkRadixSort) by MicroWerner for GPU depth sorting
+- **Build System**: [GLFW]([https://github.com/g-truc/glm](https://github.com/glfw/glfw)) for cross-platform windowing
+- **Radix Sort:** [VkRadixSort](https://github.com/MichaelMoroz/VkRadixSort](https://github.com/MircoWerner/VkRadixSort) by MicroWerner for GPU depth sorting
 - **Platforms**: Windows, Linux, macOS (mobile planned)
 
 ---
