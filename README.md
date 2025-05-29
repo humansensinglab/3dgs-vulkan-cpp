@@ -14,7 +14,7 @@ Example ply : https://huggingface.co/datasets/dylanebert/3dgs/tree/main/bonsai/p
 Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This project uses **standard Vulkan 1.3**, ensuring:
 
 - ✅ **Cross-platform**: Runs on Windows, Linux, and macOS
-- ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon  
+- ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon  (still not working on Mac, need to activate certain extensions)
 - ✅ **No vendor lock-in**: Fully open, portable GPU compute
 - ✅ **Cloud-ready**: Compatible with any Vulkan-capable infrastructure
 
