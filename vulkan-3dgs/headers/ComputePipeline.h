@@ -234,7 +234,7 @@ private:
   int _sizeBufferMax = 0;
   GaussianBuffers _gaussianBuffers;
   BufferManager *_buffManager;
-  int _numGaussians;
+  int32_t _numGaussians;
   uint32_t _numSteps;
   VkDescriptorSet _radixDescriptorSets[12];
 

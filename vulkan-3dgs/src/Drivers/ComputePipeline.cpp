@@ -15,13 +15,12 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   CreateDescriptorPool();
 
   CreateDescriptorSetLayout(PipelineType::PREPROCESS);
-  CreateComputePipeline("src/Shaders/preprocess.spv", PipelineType::PREPROCESS,
-                        1);
+  CreateComputePipeline("Shaders/preprocess.spv", PipelineType::PREPROCESS, 1);
   SetupDescriptorSet(PipelineType::PREPROCESS);
   UpdateAllDescriptorSets(PipelineType::PREPROCESS);
 
   CreateDescriptorSetLayout(PipelineType::PREFIXSUM);
-  CreateComputePipeline("src/Shaders/sum.spv", PipelineType::PREFIXSUM, 3);
+  CreateComputePipeline("Shaders/sum.spv", PipelineType::PREFIXSUM, 3);
   SetupDescriptorSet(PipelineType::PREFIXSUM);
   UpdateAllDescriptorSets(PipelineType::PREFIXSUM);
 
@@ -31,17 +30,15 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
    UpdateAllDescriptorSets(PipelineType::NEAREST);*/
 
   CreateDescriptorSetLayout(PipelineType::ASSIGN_TILE_IDS);
-  CreateComputePipeline("src/Shaders/idkeys.spv", PipelineType::ASSIGN_TILE_IDS,
-                        2);
+  CreateComputePipeline("Shaders/idkeys.spv", PipelineType::ASSIGN_TILE_IDS, 2);
   SetupDescriptorSet(PipelineType::ASSIGN_TILE_IDS);
   UpdateAllDescriptorSets(PipelineType::ASSIGN_TILE_IDS);
 
   CreateDescriptorSetLayout(PipelineType::RADIX_HISTOGRAM_0);
-  CreateComputePipeline("src/Shaders/histogram.spv",
+  CreateComputePipeline("Shaders/histogram.spv",
                         PipelineType::RADIX_HISTOGRAM_0, 4);
   CreateDescriptorSetLayout(PipelineType::RADIX_SCATTER_0);
-  CreateComputePipeline("src/Shaders/sort.spv", PipelineType::RADIX_SCATTER_0,
-                        4);
+  CreateComputePipeline("Shaders/sort.spv", PipelineType::RADIX_SCATTER_0, 4);
 
   SetupDescriptorSet(PipelineType::RADIX_HISTOGRAM_0);
   UpdateAllDescriptorSets(PipelineType::RADIX_HISTOGRAM_0);
@@ -56,17 +53,16 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   UpdateAllDescriptorSets(PipelineType::RADIX_SCATTER_1);
 
   CreateDescriptorSetLayout(PipelineType::TILE_BOUNDARIES);
-  CreateComputePipeline("src/Shaders/boundaries.spv",
-                        PipelineType::TILE_BOUNDARIES, 1);
+  CreateComputePipeline("Shaders/boundaries.spv", PipelineType::TILE_BOUNDARIES,
+                        1);
   SetupDescriptorSet(PipelineType::TILE_BOUNDARIES);
   UpdateAllDescriptorSets(PipelineType::TILE_BOUNDARIES);
 
   CreateDescriptorSetLayout(PipelineType::RENDER);
 #ifdef SHARED_MEM_RENDERING
-  CreateComputePipeline("src/Shaders/render_shared.spv", PipelineType::RENDER,
-                        2);
+  CreateComputePipeline("Shaders/render_shared.spv", PipelineType::RENDER, 2);
 #else
-  CreateComputePipeline("src/Shaders/render.spv", PipelineType::RENDER, 2);
+  CreateComputePipeline("Shaders/render.spv", PipelineType::RENDER, 2);
 #endif
   SetupDescriptorSet(PipelineType::RENDER);
   UpdateAllDescriptorSets(PipelineType::RENDER);
@@ -141,7 +137,7 @@ void ComputePipeline::CleanUp() {
 
 void ComputePipeline::CreateCommandBuffers() {
 
-  int size_sw = _vkContext.GetSwapchainImages().size();
+  size_t size_sw = _vkContext.GetSwapchainImages().size();
   _commandBuffers.resize(size_sw);
   VkCommandBufferAllocateInfo cbAllocInfo = {};
   cbAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -382,10 +378,10 @@ void ComputePipeline::RecordCommandPreprocess(uint32_t imageIndex) {
   for (uint32_t step = 0; step <= _numSteps; step++) {
     struct PushConstants {
       uint32_t step;
-      uint32_t numElements;
-      uint32_t readFromA; // ADD THIS
-    } pushConstants = {step, _numGaussians,
-                       (step % 2) == 0 ? 1 : 0}; // MODIFY THIS
+      int32_t numElements;
+      int32_t readFromA;
+    } pushConstants = {step, (uint32_t)_numGaussians,
+                       (step % 2) == 0 ? (uint32_t)1 : (uint32_t)0};
 
     vkCmdPushConstants(commandBuffer, _pipelineLayouts[PipelineType::PREFIXSUM],
                        VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants),

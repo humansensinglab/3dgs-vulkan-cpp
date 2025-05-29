@@ -7,6 +7,8 @@ Cross-platform 3D Gaussian Splatting implementation using **pure Vulkan compute 
 
 ---
 
+Example ply : https://huggingface.co/datasets/dylanebert/3dgs/tree/main/bonsai/point_cloud/iteration_30000
+
 ## 🚀 Why Vulkan?
 
 Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This project uses **standard Vulkan 1.3**, ensuring:

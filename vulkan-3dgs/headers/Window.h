@@ -11,7 +11,7 @@
 class WindowManager {
 
 public:
-  WindowManager(const std::string wName, const int w = 1600, const int h = 1200)
+  WindowManager(const std::string wName, const int w = 1200, const int h = 800)
       : _wName(wName), _w(w), _h(h){};
 
   void InitWindow();

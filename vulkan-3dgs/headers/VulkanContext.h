@@ -6,11 +6,11 @@
 #include "utils.h"
 #include <iostream>
 
-// #ifdef NDEBUG
-// const bool enableValidationLayers = false;
-// #else
+#ifdef NDEBUG
+const bool enableValidationLayers = false;
+#else
 const bool enableValidationLayers = true;
-// #endif
+#endif
 
 class VulkanContext {
 public:
@@ -32,7 +32,7 @@ public:
   VkFormat GetSwapchainFormat() const { return _vcxSwapChainFormat; }
   const VkExtent2D &GetSwapchainExtent() const { return _vcxSwapChainExtent2D; }
   std::vector<SwapChainImage> &GetSwapchainImages() { return _vcxImages; }
-  int SwapchainSize() const { return _vcxImages.size(); }
+  int32_t SwapchainSize() const { return (int32_t)_vcxImages.size(); }
 
   VkCommandPool GetCommandPool() const { return _vcxCommandPool; }
 

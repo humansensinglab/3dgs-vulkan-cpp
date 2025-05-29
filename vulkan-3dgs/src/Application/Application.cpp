@@ -6,7 +6,6 @@
 #include "VulkanContext.h"
 #include "Window.h"
 #include <chrono>
-#include <filesystem>
 #include <iostream>
 
 int main() {
@@ -14,7 +13,7 @@ int main() {
   // Load PLY
   int shDegree = 3;
   std::unique_ptr<GaussianBase> gaussianData =
-      PLYLoader::LoadPLY("../point_cloud2.ply", shDegree);
+      PLYLoader::LoadPLY("./bonsai.ply", shDegree);
 
   // window
   WindowManager windowManager("Vulkan 3DGS API");
