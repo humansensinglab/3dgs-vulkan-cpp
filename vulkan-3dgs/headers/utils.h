@@ -5,7 +5,10 @@
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <chrono>
+#include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <set>
 #include <vector>
 
@@ -14,6 +17,33 @@ struct StagingRead {
   void *mem;
 };
 
+struct FrameTimer {
+  std::chrono::steady_clock::time_point lastTime;
+  double fps;
+  double deltaTime;
+
+  FrameTimer()
+      : lastTime(std::chrono::steady_clock::now()), fps(0.0), deltaTime(0.0) {}
+
+  void UpdateTime() {
+    auto currentTime = std::chrono::steady_clock::now();
+    deltaTime = std::chrono::duration<double>(currentTime - lastTime).count();
+    lastTime = currentTime;
+
+    if (deltaTime > 0.0) {
+      fps = 1.0 / deltaTime;
+    }
+  }
+  void PrintStats() const {
+    std::cout << "FPS: " << fps << " | Frame Time: " << deltaTime * 1000.0
+              << "ms" << std::endl;
+  }
+};
+
+struct InputArgs {
+  std::string ply;
+  int degree;
+};
 constexpr int AVG_GAUSS_TILE = 4;
 
 struct GaussianBuffers {
@@ -78,4 +108,26 @@ static std::vector<char> ReadFile(const std::string &filename) {
   file.close();
 
   return fileBuffer;
+}
+
+static InputArgs checkArgs(int argc, char *argv[]) {
+  if (argc < 3) {
+    std::cout << "here" << std::endl;
+    throw std::invalid_argument("Usage: " + std::string(argv[0]) +
+                                " <poiv ntcloud_file> <SH_degree>");
+  }
+
+  std::string pointcloudPath = argv[1];
+  int shDegree = std::atoi(argv[2]);
+
+  if (!std::filesystem::exists(pointcloudPath)) {
+    throw std::runtime_error("File '" + pointcloudPath + "' does not exist!");
+  }
+
+  if (shDegree < 0 || shDegree > 3) {
+    throw std::invalid_argument("SH degree " + std::to_string(shDegree) +
+                                " not supported (0-3)");
+  }
+
+  return {pointcloudPath, shDegree};
 }
