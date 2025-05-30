@@ -14,7 +14,7 @@ Example ply : https://huggingface.co/datasets/dylanebert/3dgs/tree/main/bonsai/p
 Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This project uses **standard Vulkan 1.3**, ensuring:
 
 - ✅ **Cross-platform**: Runs on Windows, Linux, and macOS
-- ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon  
+- ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon  (still not working on Mac, need to activate certain extensions)
 - ✅ **No vendor lock-in**: Fully open, portable GPU compute
 - ✅ **Cloud-ready**: Compatible with any Vulkan-capable infrastructure
 
@@ -49,6 +49,94 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 
 
 **The core 3DGS algorithm is fully functional and production-ready.**
+
+## Building from Source
+
+### Prerequisites
+- Vulkan SDK 1.3+ installed
+- Visual Studio 2022 (Windows) or GCC/Clang (Linux/macOS)
+- CMake 3.10+
+- Compatible GPU with Vulkan support
+
+### Step 1: Clone the Repository
+```bash
+git clone https://github.com/AlejandroAmat/3dgs-vulkan-cpp.git
+cd 3dgs-vulkan-cpp
+```
+
+### Step 2: Create Build Directory
+```bash
+mkdir build
+cd build
+```
+
+### Step 3: Configure with CMake
+```bash
+cmake ..
+```
+
+For Visual Studio users, you can specify the generator:
+```bash
+cmake -G "Visual Studio 17 2022" ..
+```
+
+### Step 4: Build the Project
+```bash
+# For Release build (recommended)
+cmake --build . --config Release
+
+# For Debug build
+cmake --build . --config Debug
+```
+
+Alternatively, if you generated Visual Studio files:
+- Open `build/vulkan-3dgs.sln`
+- Set `vulkan-3dgs` as the startup project
+- Press F5 to build and run
+
+### Step 5: Locate the Executable
+The executable will be created in:
+- **Windows**: `build/vulkan-3dgs/Release/vulkan-3dgs.exe` (or `Debug/`)
+- **Linux/macOS**: `build/vulkan-3dgs/vulkan-3dgs`
+
+### Step 6: Run the Application
+```bash
+# Navigate to the executable directory
+cd vulkan-3dgs/Release
+
+# Run with a PLY file
+./vulkan-3dgs.exe path/to/your/pointcloud.ply
+```
+
+### Directory Structure After Build
+```
+build/
+└── vulkan-3dgs/
+    └── Release/
+        ├── vulkan-3dgs.exe
+        ├── Shaders/
+        │   ├── preprocess.spv
+        │   ├── render.spv
+        │   └── ... (other shader files)
+        └── (place your .ply file here or specify full path)
+```
+
+### Troubleshooting Build Issues
+
+**CMake can't find Vulkan:**
+- Ensure Vulkan SDK is installed
+- Check that `VULKAN_SDK` environment variable is set
+- On Windows: `echo %VULKAN_SDK%`
+- On Linux/macOS: `echo $VULKAN_SDK`
+
+**Shader files not found:**
+- The build process automatically copies `.spv` files from `src/Shaders/`
+- Ensure shader files exist in the source directory
+
+**Link errors with GLFW:**
+- The project uses precompiled GLFW libraries in `third-party/GLFW/lib-vc2022`
+- For other compilers, you may need to rebuild GLFW
+
 
 ---
 
