@@ -2,8 +2,8 @@
 
 Cross-platform 3D Gaussian Splatting implementation using **pure Vulkan compute shaders** — no CUDA dependencies.
 
-![Current State](media/gaussian.gif)
-*Real-time rendering of 2.6M Gaussians at 1800x1600 resolution (30-60 FPS) on Nvidia 3070*
+![Current State](media/gaussian_record.gif)
+*Real-time rendering with keyframe animation system and configurable parameters on NVIDIA RTX 3070*
 
 ---
 
@@ -14,7 +14,7 @@ Example ply : https://huggingface.co/datasets/dylanebert/3dgs/tree/main/bonsai/p
 Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This project uses **standard Vulkan 1.3**, ensuring:
 
 - ✅ **Cross-platform**: Runs on Windows, Linux, and macOS
-- ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon  (still not working on Mac, need to activate certain extensions)
+- ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon (still not working on Mac, need to activate certain extensions)
 - ✅ **No vendor lock-in**: Fully open, portable GPU compute
 - ✅ **Cloud-ready**: Compatible with any Vulkan-capable infrastructure
 
@@ -29,6 +29,38 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 - **Smart Memory Management**: Persistent buffer mappings and dynamic resizing
 - **Flexible Architecture**: Compile-time shared memory optimization options
 
+### 🎬 NEW: Keyframe Animation System
+
+**Professional Camera Animation**:
+- 📹 **Keyframe Recording**: Capture camera positions, rotations, and rendering parameters at specific time points
+- 🎯 **Smooth Interpolation**: Automatic interpolation between keyframes for cinematic camera movements
+- ⏯️ **Playback Control**: Play, stop, and loop through your animation sequences
+- 📊 **Parameter Animation**: Animate FOV, near/far planes, wireframe mode, and more
+- 🎞️ **Video Export Ready**: Fixed timestep rendering for consistent video output
+
+### 🎛️ Configurable Parameters
+
+**Real-time Controls via ImGui**:
+- **Camera Settings**:
+  - FOV adjustment (30° - 120°)
+  - Mouse sensitivity (0.01 - 0.4)
+  - Movement speed (1.0 - 10.0)
+  - Free-fly or look-at modes
+  
+- **Rendering Options**:
+  - Distance culling with adjustable near/far planes
+  - Wireframe mode with Gaussian scale control
+  - Real-time performance metrics (FPS, GPU memory)
+  - Tile size configuration
+  
+- **Animation Keyframes Include**:
+  - Camera position (X, Y, Z)
+  - Camera rotation (Yaw, Pitch)
+  - Field of View
+  - Near/Far culling planes
+  - Wireframe mode toggle
+  - Timing control
+
 ---
 
 ## ✅ Core Implementation Complete
@@ -38,7 +70,7 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 - **Vulkan Foundation** — Complete device/queue setup with cross-platform compatibility
 - **Buffer Architecture** — Persistent mapped staging & storage buffers with dynamic resizing
 - **Compute Infrastructure** — Descriptor management, pipeline creation, command recording
-- **Camera System** — Smooth first-person controls with real-time matrix updates
+- **Camera System** — Smooth first-person controls with real-time matrix updates + keyframe animation
 - **GPU Preprocessing** — Frustum culling, 3D→2D covariance, NDC projection
 - **Spherical Harmonics** — Full SH evaluation (degrees 0–3) for view-dependent lighting
 - **Screen Projection** — Accurate pixel transforms with radius estimation
@@ -46,7 +78,7 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 - **Depth Sorting** — GPU radix sort for proper depth ordering
 - **Tile-Based Rasterization** — Complete per-tile Gaussian binning and rendering
 - **Alpha Blending** — Order-independent transparency with correct compositing
-
+- **ImGui Integration** — Professional UI for real-time parameter control and animation
 
 **The core 3DGS algorithm is fully functional and production-ready.**
 
@@ -137,6 +169,29 @@ build/
 - The project uses precompiled GLFW libraries in `third-party/GLFW/lib-vc2022`
 - For other compilers, you may need to rebuild GLFW
 
+---
+
+## 🎮 Usage & Controls
+
+### Camera Controls
+- **WASD** - Move forward/backward/left/right
+- **Q/E** - Move up/down
+- **Right Mouse + Drag** - Look around
+- **Mouse Scroll** - Adjust FOV
+
+### Animation Workflow
+1. **Enter Sequence Mode** - Click "Enter Sequence" in the Camera Sequence window
+2. **Position Camera** - Navigate to desired viewpoint
+3. **Add Keyframe** - Captures current camera state and parameters
+4. **Repeat** - Add multiple keyframes at different times
+5. **Play** - Watch smooth interpolated animation
+6. **Export** - Record to video with consistent framerate
+
+### ImGui Interface
+- **Performance Panel** - Real-time FPS, frame time, GPU memory usage
+- **Camera Panel** - Position, rotation, FOV, speed controls
+- **Rendering Panel** - Culling, wireframe, tile size options
+- **Sequence Panel** - Keyframe management and playback
 
 ---
 
@@ -150,14 +205,14 @@ build/
 ## ⏳ Roadmap
 
 ### Platform Expansion  
-- **Animation System** — Gaussian sequence loading and playback
+- **Video Export** — Direct MP4/AVI export from animation sequences
 - **Cross-Platform Build** — Universal CMake configuration for all OS
 - **Mobile Support** — Native Android app + iOS via MoltenVK
 
 ### User Experience
-- **ImGui Integration** — Real-time controls and debugging interface
+- **Advanced Animation** — Bezier curves, easing functions, path preview
 - **Drag & Drop** — Direct PLY file loading from desktop
-- **Export Features** — Render to video/image sequences
+- **Multi-PLY Support** — Load and switch between multiple models
 
 ---
 
@@ -167,9 +222,10 @@ build/
 - **Language**: C++17 with modern practices
 - **Shaders**: GLSL → SPIR-V compilation
 - **Math Library**: [GLM](https://github.com/g-truc/glm) for transforms
+- **UI Framework**: [Dear ImGui](https://github.com/ocornut/imgui) for controls
 - **Build System**: CMake (cross-platform)
-- **Build System**: [GLFW](https://github.com/glfw/glfw)) for cross-platform windowing
-- **Radix Sort:** [VkRadixSort](https://github.com/MircoWerner/VkRadixSort) by MicroWerner for GPU depth sorting
+- **Windowing**: [GLFW](https://github.com/glfw/glfw) for cross-platform support
+- **Radix Sort**: [VkRadixSort](https://github.com/MircoWerner/VkRadixSort) by MircoWerner for GPU depth sorting
 - **Platforms**: Windows, Linux, macOS (mobile planned)
 
 ---
@@ -193,7 +249,6 @@ build/
 
 Make high-performance neural radiance field rendering accessible on **any GPU**, **any platform**, fully **open source**, without proprietary dependencies.
 
-
 **Requirements**:
 - Vulkan 1.3 compatible GPU and drivers
 - C++17 compiler
@@ -214,4 +269,4 @@ This project aims to advance open 3DGS rendering. Contributions welcome for:
 
 ## 📄 License
 
-MIT 
+MIT
