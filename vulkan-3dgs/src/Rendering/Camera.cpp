@@ -7,12 +7,14 @@ Camera::Camera(int w, int h, float fov, float aspectRatio, float nearPlane,
                float farPlane)
     : _pos(glm::vec3(-0.53f, -0.25f, 33.74f)),
       _front(glm::vec3(0.0f, 0.0f, 1.0f)),
-      _worldUp(glm::vec3(0.0f, 1.0f, 0.0f)), _yaw(-90.0f), _w(w),
+      _worldUp(glm::vec3(0.0f, -1.0f, 0.0f)), _w(w),
       _h(h) // Start looking forward (negative Z)
       ,
-      _pitch(0.0f), _fov(fov), _aspectRatio(aspectRatio), _nearPlane(nearPlane),
+      _fov(fov), _aspectRatio(aspectRatio), _nearPlane(nearPlane),
       _farPlane(farPlane), _moveSpeed(5.0f), _mouseSensitivity(0.1f) {
   g_renderSettings.pos = _pos;
+  g_renderSettings.nearPlane = nearPlane;
+  g_renderSettings.farPlane = farPlane;
   UpdateCameraVectors();
 }
 
@@ -23,7 +25,8 @@ glm::mat4 Camera::GetViewMatrix() const {
 
 glm::mat4 Camera::GetProjectionMatrix() const {
   return glm::perspective(glm::radians(g_renderSettings.fov), _aspectRatio,
-                          _nearPlane, _farPlane);
+                          g_renderSettings.nearPlane,
+                          g_renderSettings.farPlane);
 }
 
 void Camera::ProcessMouseMovement(float deltaX, float deltaY,
@@ -31,15 +34,26 @@ void Camera::ProcessMouseMovement(float deltaX, float deltaY,
   deltaX *= g_renderSettings.mouseSensitivity;
   deltaY *= g_renderSettings.mouseSensitivity;
 
-  _yaw += deltaX;
-  _pitch += deltaY;
+  glm::quat yawRotation = glm::angleAxis(glm::radians(-deltaX), GetUpVector());
 
-  // Constrain pitch to prevent screen flip
+  // Pitch (up/down) around camera's current RIGHT vector
+  glm::quat pitchRotation =
+      glm::angleAxis(glm::radians(-deltaY), GetRightVector());
+
+  // Apply rotations to current orientation (LOCAL SPACE)
+  _orientation = yawRotation * _orientation * pitchRotation;
+  _orientation = glm::normalize(_orientation);
+
+  // Optional: Constrain pitch if needed
   if (constrainPitch) {
-    if (_pitch > 89.0f)
-      _pitch = 89.0f;
-    if (_pitch < -89.0f)
-      _pitch = -89.0f;
+    // Convert back to Euler to check pitch constraint
+    glm::vec3 euler = glm::eulerAngles(_orientation);
+    float pitch = glm::degrees(euler.x);
+
+    if (pitch > 89.0f || pitch < -89.0f) {
+      // Revert the pitch rotation if it goes too far
+      _orientation = yawRotation * _orientation; // Only apply yaw
+    }
   }
 
   UpdateCameraVectors();
@@ -99,14 +113,11 @@ CameraUniforms Camera::getUniforms() {
 
 void Camera::UpdateCameraVectors() {
 
-  glm::vec3 newFront;
-  newFront.x = cos(glm::radians(_yaw)) * cos(glm::radians(_pitch));
-  newFront.y = sin(glm::radians(_pitch));
-  newFront.z = sin(glm::radians(_yaw)) * cos(glm::radians(_pitch));
+  _front = GetForwardVector();
+  _right = GetRightVector();
+  _up = GetUpVector();
 
-  _front = glm::normalize(newFront);
-
-  // Calculate right and up vectors
-  _right = glm::normalize(glm::cross(_front, _worldUp));
-  _up = glm::normalize(glm::cross(_right, _front));
+  _front = glm::normalize(_front);
+  _right = glm::normalize(_right);
+  _up = glm::normalize(_up);
 }

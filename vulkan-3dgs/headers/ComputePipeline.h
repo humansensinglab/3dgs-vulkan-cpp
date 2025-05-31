@@ -110,7 +110,8 @@ private:
   void SetUpRadixBuffers();
   void RecordImGuiRenderPass(VkCommandBuffer commandBuffer,
                              uint32_t imageIndex);
-  void clearSwapchain(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+  void clearSwapchain(VkCommandBuffer commandBuffer, uint32_t imageIndex,
+                      bool toGeneral = false);
   // repeated layouts:: we can share them. TODO
   std::map<PipelineType, std::vector<DescriptorBinding>> SHADER_LAYOUTS = {
       {PipelineType::PREPROCESS,

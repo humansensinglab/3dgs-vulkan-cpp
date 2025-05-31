@@ -15,7 +15,7 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   CreateDescriptorPool();
 
   CreateDescriptorSetLayout(PipelineType::PREPROCESS);
-  CreateComputePipeline("Shaders/preprocess.spv", PipelineType::PREPROCESS, 1);
+  CreateComputePipeline("Shaders/preprocess.spv", PipelineType::PREPROCESS, 4);
   SetupDescriptorSet(PipelineType::PREPROCESS);
   UpdateAllDescriptorSets(PipelineType::PREPROCESS);
 
@@ -30,7 +30,7 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
    UpdateAllDescriptorSets(PipelineType::NEAREST);*/
 
   CreateDescriptorSetLayout(PipelineType::ASSIGN_TILE_IDS);
-  CreateComputePipeline("Shaders/idkeys.spv", PipelineType::ASSIGN_TILE_IDS, 2);
+  CreateComputePipeline("Shaders/idkeys.spv", PipelineType::ASSIGN_TILE_IDS, 3);
   SetupDescriptorSet(PipelineType::ASSIGN_TILE_IDS);
   UpdateAllDescriptorSets(PipelineType::ASSIGN_TILE_IDS);
 
@@ -60,9 +60,9 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
 
   CreateDescriptorSetLayout(PipelineType::RENDER);
 #ifdef SHARED_MEM_RENDERING
-  CreateComputePipeline("Shaders/render_shared.spv", PipelineType::RENDER, 2);
+  CreateComputePipeline("Shaders/render_shared.spv", PipelineType::RENDER, 4);
 #else
-  CreateComputePipeline("Shaders/render.spv", PipelineType::RENDER, 2);
+  CreateComputePipeline("Shaders/render.spv", PipelineType::RENDER, 4);
 #endif
   SetupDescriptorSet(PipelineType::RENDER);
   UpdateAllDescriptorSets(PipelineType::RENDER);
@@ -328,14 +328,20 @@ void ComputePipeline::RecordCommandPreprocess(uint32_t imageIndex) {
   }
   /////////////////////////////////////////////////////////////////////////////////////
   // Transition image to GENERAL
-  TransitionImage(
-      commandBuffer, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, // Changed from UNDEFINED
-      VK_IMAGE_LAYOUT_GENERAL,
-      _vkContext.GetSwapchainImages()[imageIndex].image,
-      VK_ACCESS_MEMORY_READ_BIT, // Changed from 0
-      VK_ACCESS_SHADER_WRITE_BIT,
-      VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, // Changed from TOP_OF_PIPE
-      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+  static std::vector<bool> firstFrame(_vkContext.GetSwapchainImages().size(),
+                                      true);
+
+  VkImageLayout srcLayout = firstFrame[imageIndex]
+                                ? VK_IMAGE_LAYOUT_UNDEFINED
+                                : VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+  firstFrame[imageIndex] = false;
+
+  TransitionImage(commandBuffer, srcLayout, // Use correct source layout
+                  VK_IMAGE_LAYOUT_GENERAL,
+                  _vkContext.GetSwapchainImages()[imageIndex].image,
+                  VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_SHADER_WRITE_BIT,
+                  VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
   /////////////////////////////////////////////////////////////////////////////////////
   // Bind pipeline 1
@@ -343,9 +349,17 @@ void ComputePipeline::RecordCommandPreprocess(uint32_t imageIndex) {
   vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
                     _computePipelines[PipelineType::PREPROCESS]);
 
+  struct {
+    int32_t numGauss;
+    float nearPlane;
+    float farPlane;
+    uint32_t culling;
+  } pushPreprocess = {_numGaussians, g_renderSettings.nearPlane,
+                      g_renderSettings.farPlane,
+                      uint32_t(g_renderSettings.enableCulling)};
   vkCmdPushConstants(commandBuffer, _pipelineLayouts[PipelineType::PREPROCESS],
-                     VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(int),
-                     &_numGaussians);
+                     VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushPreprocess),
+                     &pushPreprocess);
   // Bind descriptor set
   vkCmdBindDescriptorSets(
       commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
@@ -446,8 +460,9 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
     uint32_t tileX = (extent.width + 15) / 16;
     struct {
       uint32_t tile;
-      int nGauss;
-    } pushCt = {tileX, _numGaussians};
+      int32_t nGauss;
+      uint32_t culling;
+    } pushCt = {tileX, _numGaussians, 1};
     vkCmdPushConstants(commandBuffer,
                        _pipelineLayouts[PipelineType::ASSIGN_TILE_IDS],
                        VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushCt), &pushCt);
@@ -591,14 +606,18 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
                          &tilesBarrier, 0, nullptr, 0, nullptr);
 
     ///////////////////////////////////////////////////////////////////////////////////////////
-
+    clearSwapchain(commandBuffer, imageIndex, true);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
                       _computePipelines[PipelineType::RENDER]);
 
     struct {
       uint32_t w;
       uint32_t h;
-    } pcRender = {extent.width, extent.height};
+      uint32_t wireframe;
+      float gaussScale;
+    } pcRender = {extent.width, extent.height,
+                  uint32_t(g_renderSettings.showWireframe),
+                  g_renderSettings.gaussianScale};
 
     vkCmdPushConstants(commandBuffer, _pipelineLayouts[PipelineType::RENDER],
                        VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pcRender),
@@ -622,9 +641,9 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
                          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier_x,
                          0, nullptr, 0, nullptr);
   } else {
+
     clearSwapchain(commandBuffer, imageIndex);
   }
-
   TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_GENERAL,
                   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                   _vkContext.GetSwapchainImages()[imageIndex].image,
@@ -632,11 +651,9 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
                   VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
                   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-
   // Record ImGui render pass
   RecordImGuiRenderPass(commandBuffer, imageIndex);
 
-  // Transition back to PRESENT_SRC_KHR
   TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                   VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                   _vkContext.GetSwapchainImages()[imageIndex].image,
@@ -948,8 +965,9 @@ void ComputePipeline::RecordImGuiRenderPass(VkCommandBuffer commandBuffer,
 }
 
 void ComputePipeline::clearSwapchain(VkCommandBuffer commandBuffer,
-                                     uint32_t imageIndex) {
-  TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                                     uint32_t imageIndex, bool toGeneral) {
+
+  TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_GENERAL,
                   VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                   _vkContext.GetSwapchainImages()[imageIndex].image,
                   VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,

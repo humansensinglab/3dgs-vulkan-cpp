@@ -26,6 +26,9 @@ const int BLOCK_X = 16;
 const int BLOCK_Y = 16;
 layout(push_constant) uniform PushConstants {
     uint gaussianCount;
+    float near;
+    float far;
+    uint culling;
 } pc;
 // Input buffers
 layout(binding = 1) readonly buffer GaussianPositions {
@@ -120,7 +123,9 @@ bool inFrustum(int idx, out vec3 pView) {
     
     // Near plane culling
     //if (pView.z <= 0.01) return false;
-    if (pView.z >= -0.01) return false;  
+    
+    if (pView.z >= -1*pc.near) return false; 
+    if(pView.z < -1*pc.far) return false; 
     // Frustum culling (simplified)
     vec4 pClip = camera.projMatrix * vec4(pView, 1.0);
     return abs(pClip.x) <= pClip.w && abs(pClip.y) <= pClip.w;
@@ -334,8 +339,10 @@ void main() {
     
     // Frustum culling
     vec3 pView;
-    if (!inFrustum(int(idx), pView)) return;
- 
+    bool inFrust = inFrustum(int(idx), pView);
+    if(pc.culling==1){
+        if (!inFrust) return;
+    }
     // Transform to clip space
     vec3 pOrig = positions[idx].xyz;
     vec4 pHom = transformPoint4x4(pOrig, camera.projMatrix * camera.viewMatrix);

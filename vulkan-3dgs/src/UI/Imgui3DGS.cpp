@@ -267,11 +267,33 @@ void ImguiUI::CreateUI() {
   ImGui::Text("Position: (%.1f,%.1f,%.1f)", g_renderSettings.pos.x,
               g_renderSettings.pos.y, g_renderSettings.pos.z);
   ImGui::Separator();
-  ImGui::SliderFloat("FOV", &g_renderSettings.fov, 30.0f, 120.0f, "%.1fº");
+
+  ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Parameters");
+  ImGui::SliderFloat("FOV", &g_renderSettings.fov, 30.0f, 120.0f, "%.1f");
   ImGui::SliderFloat("Sensitivity", &g_renderSettings.mouseSensitivity, 0.01f,
                      0.4f, "%.2f");
   ImGui::SliderFloat("Speed", &g_renderSettings.speed, 1.0f, 10.0f, "%.1f");
+
+  ImGui::Separator();
+  ImGui::Checkbox("Distance Culling", &g_renderSettings.enableCulling);
+  ImGui::BeginDisabled(!g_renderSettings.enableCulling);
+  ImGui::SliderFloat("Near Plane", &g_renderSettings.nearPlane, 0.01f, 50.0f,
+                     "%.1f");
+  ImGui::SliderFloat("Far Plane", &g_renderSettings.farPlane, 1.0f, 300.0f,
+                     "%.1f");
+  ImGui::EndDisabled();
   ImGui::PopItemWidth();
+  ImGui::Separator();
+  ImGui::BeginDisabled(true);
+  ImGui::SliderInt("TileSize", &g_renderSettings.tileSize, 8, 256);
+  ImGui::Button("Size Culling: ACTIVE");
+  ImGui::EndDisabled();
+  ImGui::Separator();
+  ImGui::Checkbox("Wireframe Mode", &g_renderSettings.showWireframe);
+  ImGui::BeginDisabled(!g_renderSettings.showWireframe);
+  ImGui::SliderFloat("Gaussian Scale", &g_renderSettings.gaussianScale, 0.01f,
+                     10.0f, "%.1f");
+  ImGui::EndDisabled();
   // Controls
   {
     ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Controls");
