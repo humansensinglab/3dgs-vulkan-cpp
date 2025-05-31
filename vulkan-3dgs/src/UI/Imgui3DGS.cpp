@@ -266,9 +266,12 @@ void ImguiUI::CreateUI() {
   ImGui::PushItemWidth(120);
   ImGui::Text("Position: (%.1f,%.1f,%.1f)", g_renderSettings.pos.x,
               g_renderSettings.pos.y, g_renderSettings.pos.z);
+  ImGui::Text("Rotation: Yaw: %.1f, Pitch: %.1f", g_renderSettings.yaw,
+              g_renderSettings.pitch);
   ImGui::Separator();
 
   ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Parameters");
+  ImGui::BeginDisabled(g_renderSettings.playing);
   ImGui::SliderFloat("FOV", &g_renderSettings.fov, 30.0f, 120.0f, "%.1f");
   ImGui::SliderFloat("Sensitivity", &g_renderSettings.mouseSensitivity, 0.01f,
                      0.4f, "%.2f");
@@ -294,6 +297,10 @@ void ImguiUI::CreateUI() {
   ImGui::SliderFloat("Gaussian Scale", &g_renderSettings.gaussianScale, 0.01f,
                      10.0f, "%.1f");
   ImGui::EndDisabled();
+  ImGui::Separator();
+  ImGui::Checkbox("Sequence Mode", &g_renderSettings.sequenceMode);
+  ImGui::Separator();
+  ImGui::EndDisabled();
   // Controls
   {
     ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Controls");
@@ -303,6 +310,73 @@ void ImguiUI::CreateUI() {
   }
 
   ImGui::End();
+
+  ///////////////////////
+
+  if (!g_renderSettings.sequenceMode)
+    return;
+
+  if (ImGui::Begin("Camera Sequence")) {
+    ImGui::SetNextWindowPos(ImVec2(800, 500), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(300, 200), ImGuiCond_Once);
+    ImGui::Separator();
+
+    if (ImGui::Button("Add Keyframe")) {
+      CameraKeyframe kf;
+      kf.time = sequence.empty() ? 0.0f : sequence.back().time + 1.0f;
+      kf.position = g_renderSettings.pos;
+      kf.fov = g_renderSettings.fov;
+      kf.wireframe = g_renderSettings.showWireframe;
+      kf.nearPlane = g_renderSettings.nearPlane;
+      kf.farPlane = g_renderSettings.farPlane;
+      sequence.push_back(kf);
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("Play")) {
+      g_renderSettings.playing = true;
+      _seqRecorder.setSequence(&sequence);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Stop")) {
+      g_renderSettings.playing = false; // Fix: use g_renderSettings
+    }
+
+    // List keyframes
+    ImGui::Separator();
+    for (int i = 0; i < sequence.size(); i++) {
+      ImGui::PushID(i);
+
+      bool isSelected = (selectedKeyframe == i);
+      if (ImGui::Selectable(("Keyframe " + std::to_string(i)).c_str(),
+                            isSelected)) {
+        selectedKeyframe = (selectedKeyframe == i) ? -1 : i;
+      }
+
+      if (isSelected) {
+        ImGui::Text("Time: %.2f", sequence[i].time);
+        ImGui::Text("Position: (%.1f, %.1f, %.1f)", sequence[i].position.x,
+                    sequence[i].position.y, sequence[i].position.z);
+        ImGui::Text("FOV: %.1f", sequence[i].fov);
+        ImGui::Text("Wireframe: %s", sequence[i].wireframe ? "Yes" : "No");
+        ImGui::Text("Near: %.2f", sequence[i].nearPlane);
+        ImGui::Text("Far: %.2f", sequence[i].farPlane);
+
+        ImGui::Separator();
+        ImGui::DragFloat("Adjust Time", &sequence[i].time, 0.1f, 0.0f, 100.0f);
+
+        if (ImGui::Button("Delete")) {
+          sequence.erase(sequence.begin() + i);
+          selectedKeyframe = -1;
+          ImGui::PopID();
+          break;
+        }
+      }
+
+      ImGui::PopID();
+    }
+  }
+  ImGui::End();
 }
 
-void ImguiUI::CleanUp() {}
+void ImguiUI::CleanUp(){};

@@ -4,6 +4,7 @@
 //
 #include "GPUMemInfo.h"
 #include "RenderSettings.h"
+#include "Sequence.h"
 #include "VulkanContext.h"
 #include <array>
 #include <imgui.h>
@@ -12,7 +13,8 @@
 
 class ImguiUI {
 public:
-  ImguiUI(VulkanContext &vkContext) : _vkContext(vkContext){};
+  ImguiUI(VulkanContext &vkContext, Sequence &seq)
+      : _vkContext(vkContext), _seqRecorder(seq){};
   void Init();
   void NewFrame();
   void RecordImGuiRenderPass(VkCommandBuffer commandBuffer,
@@ -25,11 +27,18 @@ private:
   VkRenderPass _renderPass;
   std::vector<VkFramebuffer> _frameBuffers;
   std::vector<VkCommandBuffer> _commandBuffers;
+  Sequence &_seqRecorder;
 
   void CreateRenderPass();
   void CreateFrameBuffers();
   void CreateDescriporPool();
   void CreateCommandBuffers();
+
+  std::vector<CameraKeyframe> sequence;
+  bool sequenceMode = false;
+  bool playing = false;
+  float currentTime = 0.0f;
+  int selectedKeyframe = -1;
 
   void CleanUp();
 };

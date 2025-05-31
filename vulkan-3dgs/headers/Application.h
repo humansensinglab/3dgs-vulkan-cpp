@@ -2,6 +2,7 @@
 #include "GaussianRenderer.h"
 #include "Imgui3DGS.h"
 #include "PLYLoader.h"
+#include "Sequence.h"
 #include "VulkanContext.h"
 #include "Window.h"
 #include <chrono>
@@ -12,7 +13,7 @@ class Application {
 public:
   Application(InputArgs args)
       : _pointCloudFile(args.ply), _degree(args.degree),
-        _windowManager("3DGS Vulkan"), _frameTimer() {}
+        _windowManager("3DGS Vulkan"), _frameTimer(), _seqRecorder() {}
   void Start();
   void Render();
   bool IsRunning() const { return _windowManager.IsActive(); }
@@ -25,4 +26,5 @@ private:
   std::unique_ptr<GaussianBase> _gaussianData;
   std::optional<VulkanContext> _vkContext;
   std::optional<GaussianRenderer> _renderPipeline;
+  Sequence _seqRecorder;
 };

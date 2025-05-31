@@ -7,7 +7,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp> // Add this for quaternion functions
 #include <glm/gtx/quaternion.hpp>
-enum class CameraMovement { FORWARD, BACKWARD, LEFT, RIGHT, UP, DOWN };
+enum class CameraMovement { FORWARD, BACKWARD, LEFT, RIGHT, UP, DOWN, SEQ };
 
 struct CameraUniforms {
   alignas(16) glm::mat4 viewMatrix;
@@ -45,24 +45,21 @@ public:
   void UpdateAspectRatio(float aspectRatio);
   CameraUniforms getUniforms();
 
-  glm::vec3 GetUpVector() const {
-    return _orientation * glm::vec3(0.0f, 1.0f, 0.0f);
-  }
-  glm::vec3 GetRightVector() const {
-    return _orientation * glm::vec3(1.0f, 0.0f, 0.0f);
-  }
-  glm::vec3 GetForwardVector() const {
-    return _orientation * glm::vec3(0.0f, 0.0f, -1.0f);
-  }
+  void RotateTarget(float dX, float dY);
+  void SwitchMode();
 
 private:
   glm::vec3 _pos, _front, _up, _worldUp, _right;
 
   float _fov, _aspectRatio, _nearPlane, _farPlane;
-  glm::quat _orientation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+
+  float _yaw, _pitch;
+
   float _moveSpeed, _mouseSensitivity;
 
   int _w, _h;
+
+  bool _lookAt = false;
 
   CameraUniforms _uniforms;
   void UpdateCameraVectors();

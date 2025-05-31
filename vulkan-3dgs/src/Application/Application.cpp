@@ -13,7 +13,7 @@ void Application::Start() {
   _vkContext.emplace(_windowManager.getWindow());
   _vkContext->InitContext();
 
-  _renderPipeline.emplace(*_vkContext, _degree);
+  _renderPipeline.emplace(*_vkContext, _degree, _seqRecorder);
   _renderPipeline->InitializeCamera(static_cast<float>(width),
                                     static_cast<float>(height));
   _renderPipeline->LoadGaussianData(std::move(_gaussianData));
@@ -32,4 +32,7 @@ void Application::Render() {
   _renderPipeline->processInput(static_cast<float>(_frameTimer.deltaTime));
   _renderPipeline->UpdateCameraUniforms();
   _renderPipeline->Render();
+
+  if (g_renderSettings.playing)
+    _seqRecorder.Play(_frameTimer.deltaTime);
 }

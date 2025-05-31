@@ -29,7 +29,21 @@ struct RenderSettings {
   bool camRotationActive = false;
   std::string plyPath = "";
   int shDegrees = -1;
+
+  float yaw = 0;
+  float pitch = 0;
+
+  bool sequenceMode = false;
+  bool playing = false;
 };
 
+struct CameraKeyframe {
+  float time;
+  glm::vec3 position;
+  float fov;
+  bool wireframe;
+  float nearPlane;
+  float farPlane;
+};
 // Global instance
 extern RenderSettings g_renderSettings;

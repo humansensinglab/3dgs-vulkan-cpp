@@ -102,6 +102,9 @@ void GaussianRenderer::mouse_callback(GLFWwindow *window, double xpos,
 
 void GaussianRenderer::processInput(float deltaTime) {
   GLFWwindow *window = _vulkanContext.getWindow();
+  if (g_renderSettings.playing) {
+    _camera->ProcessKeyboard(CameraMovement::SEQ, deltaTime);
+  }
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     _camera->ProcessKeyboard(CameraMovement::FORWARD, deltaTime);
   if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)

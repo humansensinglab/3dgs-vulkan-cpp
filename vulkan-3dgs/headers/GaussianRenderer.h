@@ -9,13 +9,15 @@
 #include "GaussianBase.h"
 #include "Imgui3DGS.h"
 #include "RenderSettings.h"
+#include "Sequence.h"
 
 class GaussianRenderer {
 
 public:
-  GaussianRenderer(VulkanContext &vulkanContext, int shDegree)
+  GaussianRenderer(VulkanContext &vulkanContext, int shDegree,
+                   Sequence &seqRecorder)
       : _vulkanContext(vulkanContext), _bufferManager(),
-        _imguiHandler(vulkanContext),
+        _imguiHandler(vulkanContext, seqRecorder),
         _computePipeline(vulkanContext, _imguiHandler), _shDegree(shDegree) {
 
     std::cout << "GaussianRenderer created" << std::endl;
@@ -64,7 +66,6 @@ private:
   std::unique_ptr<Camera> _camera;
   int _shDegree;
   int _nGauss;
-
   void *_cameraUniformMapped = nullptr;
 };
 
