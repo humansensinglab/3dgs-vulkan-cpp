@@ -6,7 +6,7 @@
 #include "utils.h"
 #include <iostream>
 
-#ifdef NDEBUG
+#ifdef DEBUG
 const bool enableValidationLayers = false;
 #else
 const bool enableValidationLayers = true;
@@ -27,7 +27,11 @@ public:
 
   VkQueue GetGraphicsQueue() const { return _vcxGraphicsQueue; }
   VkQueue GetPresentationQueue() const { return _vcxPresentationQueue; }
+  uint32_t GetGraphicsFamily() {
+    return GetQueueFamilies(_vcxMainDevice.physicalDevice).graphicsFamily;
+  }
 
+  VkInstance GetInstance() const { return _vcxInstance; }
   VkSwapchainKHR GetSwapchain() const { return _vcxSwapchain; }
   VkFormat GetSwapchainFormat() const { return _vcxSwapChainFormat; }
   const VkExtent2D &GetSwapchainExtent() const { return _vcxSwapChainExtent2D; }

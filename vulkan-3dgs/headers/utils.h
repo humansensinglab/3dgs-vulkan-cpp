@@ -110,24 +110,28 @@ static std::vector<char> ReadFile(const std::string &filename) {
   return fileBuffer;
 }
 
-static InputArgs checkArgs(int argc, char *argv[]) {
+static std::optional<InputArgs> checkArgs(int argc, char *argv[]) {
   if (argc < 3) {
-    std::cout << "here" << std::endl;
-    throw std::invalid_argument("Usage: " + std::string(argv[0]) +
-                                " <poiv ntcloud_file> <SH_degree>");
+    std::cerr << "Usage: " << argv[0] << " <pointcloud_file> <SH_degree>"
+              << std::endl;
+    std::cerr << "Example: " << argv[0] << " data/scene.ply 3" << std::endl;
+    return std::nullopt;
   }
 
   std::string pointcloudPath = argv[1];
   int shDegree = std::atoi(argv[2]);
 
   if (!std::filesystem::exists(pointcloudPath)) {
-    throw std::runtime_error("File '" + pointcloudPath + "' does not exist!");
+    std::cerr << "Error: File '" << pointcloudPath << "' does not exist!"
+              << std::endl;
+    return std::nullopt;
   }
 
   if (shDegree < 0 || shDegree > 3) {
-    throw std::invalid_argument("SH degree " + std::to_string(shDegree) +
-                                " not supported (0-3)");
+    std::cerr << "Error: SH degree " << shDegree << " not supported (0-3)"
+              << std::endl;
+    return std::nullopt;
   }
 
-  return {pointcloudPath, shDegree};
+  return InputArgs{pointcloudPath, shDegree};
 }

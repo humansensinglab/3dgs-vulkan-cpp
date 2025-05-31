@@ -328,11 +328,14 @@ void ComputePipeline::RecordCommandPreprocess(uint32_t imageIndex) {
   }
   /////////////////////////////////////////////////////////////////////////////////////
   // Transition image to GENERAL
-  TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_UNDEFINED,
-                  VK_IMAGE_LAYOUT_GENERAL,
-                  _vkContext.GetSwapchainImages()[imageIndex].image, 0,
-                  VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+  TransitionImage(
+      commandBuffer, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, // Changed from UNDEFINED
+      VK_IMAGE_LAYOUT_GENERAL,
+      _vkContext.GetSwapchainImages()[imageIndex].image,
+      VK_ACCESS_MEMORY_READ_BIT, // Changed from 0
+      VK_ACCESS_SHADER_WRITE_BIT,
+      VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, // Changed from TOP_OF_PIPE
+      VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
   /////////////////////////////////////////////////////////////////////////////////////
   // Bind pipeline 1
@@ -434,199 +437,217 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
     throw std::runtime_error("Failed to begin recording command buffer!");
   }
 
-  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                    _computePipelines[PipelineType::ASSIGN_TILE_IDS]);
-
-  VkExtent2D extent = _vkContext.GetSwapchainExtent();
-  uint32_t tileX = (extent.width + 15) / 16;
-  struct {
-    uint32_t tile;
-    int nGauss;
-  } pushCt = {tileX, _numGaussians};
-  vkCmdPushConstants(commandBuffer,
-                     _pipelineLayouts[PipelineType::ASSIGN_TILE_IDS],
-                     VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushCt), &pushCt);
-
-  vkCmdBindDescriptorSets(
-      commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-      _pipelineLayouts[PipelineType::ASSIGN_TILE_IDS], 0, 1,
-      &_descriptorSets[PipelineType::ASSIGN_TILE_IDS][imageIndex], 0, nullptr);
-
-  vkCmdDispatch(commandBuffer, (_numGaussians + 255) / 256, 1, 1);
-
-  VkMemoryBarrier barrier = {};
-  barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-  barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-  barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT; // For presentation
-
-  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier, 0,
-                       nullptr, 0, nullptr);
-
-  ////////////////////////////////////////////////////////////////////////////////////////
-
-  VkMemoryBarrier barrier_t = {};
-  barrier_t.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-  barrier_t.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-  barrier_t.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT; // For presentation
-
-  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier_t,
-                       0, nullptr, 0, nullptr);
-  uint32_t numElementsToSort = numRendered;
-
-  uint32_t elementsPerWorkgroup =
-      WORKGROUP_SIZE * blocks_per_workgroup; // 256 * 32 = 8192
-  uint32_t numWorkgroups =
-      (numElementsToSort + elementsPerWorkgroup - 1) / elementsPerWorkgroup;
-
-  // Prepare push constants
-  struct RadixPushConstants {
-    uint32_t g_num_elements;
-    uint32_t g_shift;
-    uint32_t g_num_workgroups;
-    uint32_t g_num_blocks_per_workgroup;
-  } radixPC;
-
-  radixPC.g_num_elements = numElementsToSort;
-  radixPC.g_num_workgroups = numWorkgroups;
-  radixPC.g_num_blocks_per_workgroup = blocks_per_workgroup;
-
-  // Perform 6 passes of radix sort (tiles_ID always can be represented with
-  // 2 bits)
-  for (uint32_t pass = 0; pass < 6; pass++) {
-    radixPC.g_shift = pass * 8;
-
-    bool isEven = (pass % 2 == 0);
-
-    // HISTOGRAM PASS
-    PipelineType histType = isEven ? PipelineType::RADIX_HISTOGRAM_0
-                                   : PipelineType::RADIX_HISTOGRAM_1;
+  if (numRendered) {
 
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                      _computePipelines[PipelineType::RADIX_HISTOGRAM_0]);
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                            _pipelineLayouts[PipelineType::RADIX_HISTOGRAM_0],
-                            0, 1, &_descriptorSets[histType][imageIndex], 0,
-                            nullptr);
-    vkCmdPushConstants(
-        commandBuffer, _pipelineLayouts[PipelineType::RADIX_HISTOGRAM_0],
-        VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(RadixPushConstants), &radixPC);
-    vkCmdDispatch(commandBuffer, numWorkgroups, 1, 1);
+                      _computePipelines[PipelineType::ASSIGN_TILE_IDS]);
 
-    VkMemoryBarrier histBarrier = {};
-    histBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-    histBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-    histBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
-                         &histBarrier, 0, nullptr, 0, nullptr);
+    VkExtent2D extent = _vkContext.GetSwapchainExtent();
+    uint32_t tileX = (extent.width + 15) / 16;
+    struct {
+      uint32_t tile;
+      int nGauss;
+    } pushCt = {tileX, _numGaussians};
+    vkCmdPushConstants(commandBuffer,
+                       _pipelineLayouts[PipelineType::ASSIGN_TILE_IDS],
+                       VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pushCt), &pushCt);
 
-    // SCATTER PASS
-    PipelineType scatterType =
-        isEven ? PipelineType::RADIX_SCATTER_0 : PipelineType::RADIX_SCATTER_1;
-
-    vkCmdBindPipeline(
+    vkCmdBindDescriptorSets(
         commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-        _computePipelines[PipelineType::RADIX_SCATTER_0]); // Use same pipeline
-    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                            _pipelineLayouts[PipelineType::RADIX_SCATTER_0], 0,
-                            1, &_descriptorSets[scatterType][imageIndex], 0,
-                            nullptr);
-    vkCmdPushConstants(
-        commandBuffer, _pipelineLayouts[PipelineType::RADIX_SCATTER_0],
-        VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(RadixPushConstants), &radixPC);
-    vkCmdDispatch(commandBuffer, numWorkgroups, 1, 1);
+        _pipelineLayouts[PipelineType::ASSIGN_TILE_IDS], 0, 1,
+        &_descriptorSets[PipelineType::ASSIGN_TILE_IDS][imageIndex], 0,
+        nullptr);
 
-    if (pass < 5) {
-      VkMemoryBarrier scatterBarrier = {};
-      scatterBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-      scatterBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-      scatterBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdDispatch(commandBuffer, (_numGaussians + 255) / 256, 1, 1);
+
+    VkMemoryBarrier barrier = {};
+    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    barrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT; // For presentation
+
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier,
+                         0, nullptr, 0, nullptr);
+
+    ////////////////////////////////////////////////////////////////////////////////////////
+
+    VkMemoryBarrier barrier_t = {};
+    barrier_t.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    barrier_t.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    barrier_t.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT; // For presentation
+
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier_t,
+                         0, nullptr, 0, nullptr);
+    uint32_t numElementsToSort = numRendered;
+
+    uint32_t elementsPerWorkgroup =
+        WORKGROUP_SIZE * blocks_per_workgroup; // 256 * 32 = 8192
+    uint32_t numWorkgroups =
+        (numElementsToSort + elementsPerWorkgroup - 1) / elementsPerWorkgroup;
+
+    // Prepare push constants
+    struct RadixPushConstants {
+      uint32_t g_num_elements;
+      uint32_t g_shift;
+      uint32_t g_num_workgroups;
+      uint32_t g_num_blocks_per_workgroup;
+    } radixPC;
+
+    radixPC.g_num_elements = numElementsToSort;
+    radixPC.g_num_workgroups = numWorkgroups;
+    radixPC.g_num_blocks_per_workgroup = blocks_per_workgroup;
+
+    // Perform 6 passes of radix sort (tiles_ID always can be represented with
+    // 2 bits)
+    for (uint32_t pass = 0; pass < 6; pass++) {
+      radixPC.g_shift = pass * 8;
+
+      bool isEven = (pass % 2 == 0);
+
+      // HISTOGRAM PASS
+      PipelineType histType = isEven ? PipelineType::RADIX_HISTOGRAM_0
+                                     : PipelineType::RADIX_HISTOGRAM_1;
+
+      vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                        _computePipelines[PipelineType::RADIX_HISTOGRAM_0]);
+      vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                              _pipelineLayouts[PipelineType::RADIX_HISTOGRAM_0],
+                              0, 1, &_descriptorSets[histType][imageIndex], 0,
+                              nullptr);
+      vkCmdPushConstants(
+          commandBuffer, _pipelineLayouts[PipelineType::RADIX_HISTOGRAM_0],
+          VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(RadixPushConstants), &radixPC);
+      vkCmdDispatch(commandBuffer, numWorkgroups, 1, 1);
+
+      VkMemoryBarrier histBarrier = {};
+      histBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+      histBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+      histBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
       vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
-                           &scatterBarrier, 0, nullptr, 0, nullptr);
+                           &histBarrier, 0, nullptr, 0, nullptr);
+
+      // SCATTER PASS
+      PipelineType scatterType = isEven ? PipelineType::RADIX_SCATTER_0
+                                        : PipelineType::RADIX_SCATTER_1;
+
+      vkCmdBindPipeline(
+          commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+          _computePipelines[PipelineType::RADIX_SCATTER_0]); // Use same
+                                                             // pipeline
+      vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                              _pipelineLayouts[PipelineType::RADIX_SCATTER_0],
+                              0, 1, &_descriptorSets[scatterType][imageIndex],
+                              0, nullptr);
+      vkCmdPushConstants(
+          commandBuffer, _pipelineLayouts[PipelineType::RADIX_SCATTER_0],
+          VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(RadixPushConstants), &radixPC);
+      vkCmdDispatch(commandBuffer, numWorkgroups, 1, 1);
+
+      if (pass < 5) {
+        VkMemoryBarrier scatterBarrier = {};
+        scatterBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+        scatterBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+        scatterBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        vkCmdPipelineBarrier(commandBuffer,
+                             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+                             &scatterBarrier, 0, nullptr, 0, nullptr);
+      }
     }
+
+    VkMemoryBarrier finalSortBarrier = {};
+    finalSortBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    finalSortBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    finalSortBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+                         &finalSortBarrier, 0, nullptr, 0, nullptr);
+
+    /////////////////////////////////////////////////////////////////////////////////////////
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                      _computePipelines[PipelineType::TILE_BOUNDARIES]);
+
+    vkCmdPushConstants(
+        commandBuffer, _pipelineLayouts[PipelineType::TILE_BOUNDARIES],
+        VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(uint32_t), &numRendered);
+
+    // Bind descriptor set
+    vkCmdBindDescriptorSets(
+        commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+        _pipelineLayouts[PipelineType::TILE_BOUNDARIES], 0, 1,
+        &_descriptorSets[PipelineType::TILE_BOUNDARIES][imageIndex], 0,
+        nullptr);
+
+    vkCmdDispatch(commandBuffer, (numRendered + 255) / 256, 1, 1);
+
+    VkMemoryBarrier tilesBarrier = {};
+    tilesBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    tilesBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    tilesBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
+                         &tilesBarrier, 0, nullptr, 0, nullptr);
+
+    ///////////////////////////////////////////////////////////////////////////////////////////
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                      _computePipelines[PipelineType::RENDER]);
+
+    struct {
+      uint32_t w;
+      uint32_t h;
+    } pcRender = {extent.width, extent.height};
+
+    vkCmdPushConstants(commandBuffer, _pipelineLayouts[PipelineType::RENDER],
+                       VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pcRender),
+                       &pcRender);
+
+    // Bind descriptor set
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                            _pipelineLayouts[PipelineType::RENDER], 0, 1,
+                            &_descriptorSets[PipelineType::RENDER][imageIndex],
+                            0, nullptr);
+
+    vkCmdDispatch(commandBuffer, (extent.width + 15) / 16,
+                  (extent.height + 15) / 16, 1);
+    ///////////////////////////////////////////////////////////////////////////////////////
+    VkMemoryBarrier barrier_x = {};
+    barrier_x.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    barrier_x.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    barrier_x.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier_x,
+                         0, nullptr, 0, nullptr);
+  } else {
+    clearSwapchain(commandBuffer, imageIndex);
   }
 
-  VkMemoryBarrier finalSortBarrier = {};
-  finalSortBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-  finalSortBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-  finalSortBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
-                       &finalSortBarrier, 0, nullptr, 0, nullptr);
-
-  /////////////////////////////////////////////////////////////////////////////////////////
-  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                    _computePipelines[PipelineType::TILE_BOUNDARIES]);
-
-  vkCmdPushConstants(
-      commandBuffer, _pipelineLayouts[PipelineType::TILE_BOUNDARIES],
-      VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(uint32_t), &numRendered);
-
-  // Bind descriptor set
-  vkCmdBindDescriptorSets(
-      commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-      _pipelineLayouts[PipelineType::TILE_BOUNDARIES], 0, 1,
-      &_descriptorSets[PipelineType::TILE_BOUNDARIES][imageIndex], 0, nullptr);
-
-  vkCmdDispatch(commandBuffer, (numRendered + 255) / 256, 1, 1);
-
-  VkMemoryBarrier tilesBarrier = {};
-  tilesBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-  tilesBarrier.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-  tilesBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                       VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1,
-                       &tilesBarrier, 0, nullptr, 0, nullptr);
-
-  ///////////////////////////////////////////////////////////////////////////////////////////
-
-  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                    _computePipelines[PipelineType::RENDER]);
-
-  struct {
-    uint32_t w;
-    uint32_t h;
-  } pcRender = {extent.width, extent.height};
-
-  vkCmdPushConstants(commandBuffer, _pipelineLayouts[PipelineType::RENDER],
-                     VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(pcRender),
-                     &pcRender);
-
-  // Bind descriptor set
-  vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                          _pipelineLayouts[PipelineType::RENDER], 0, 1,
-                          &_descriptorSets[PipelineType::RENDER][imageIndex], 0,
-                          nullptr);
-
-  vkCmdDispatch(commandBuffer, (extent.width + 15) / 16,
-                (extent.height + 15) / 16, 1);
-
-  VkMemoryBarrier barrier_x = {};
-  barrier_x.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
-  barrier_x.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
-  barrier_x.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT; // For presentation
-
-  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier_x,
-                       0, nullptr, 0, nullptr);
-
-  // Transition back to PRESENT
   TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_GENERAL,
+                  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                  _vkContext.GetSwapchainImages()[imageIndex].image,
+                  VK_ACCESS_SHADER_WRITE_BIT,
+                  VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                  VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+
+  // Record ImGui render pass
+  RecordImGuiRenderPass(commandBuffer, imageIndex);
+
+  // Transition back to PRESENT_SRC_KHR
+  TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                   VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                   _vkContext.GetSwapchainImages()[imageIndex].image,
-                  VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_MEMORY_READ_BIT,
-                  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                  VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                  VK_ACCESS_MEMORY_READ_BIT,
+                  VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                   VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
   if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS) {
     throw std::runtime_error("Failed to record command buffer!");
   }
-
-  /* std::cout << " Command buffer recorded for swapchain image " << imageIndex
-             << std::endl;*/
 }
 
 VkShaderModule
@@ -701,28 +722,26 @@ void ComputePipeline::RenderFrame() {
                   &_preprocessFences[_currentFrame], VK_TRUE, UINT64_MAX);
 
   uint32_t totalRendered = ReadFinalPrefixSum();
-  std::cout << totalRendered << std::endl;
+  g_renderSettings.numRendered = totalRendered;
+
   if (totalRendered > _sizeBufferMax) {
     resizeBuffers(totalRendered * 1.25);
   }
+
   vkResetFences(_vkContext.GetLogicalDevice(), 1,
                 &_renderFences[_currentFrame]);
 
-  // another command buffer?
   RecordCommandRender(imageIndex, totalRendered);
   submitCommandBuffer(imageIndex, false);
-  // Present the image
 
   VkPresentInfoKHR presentInfo = {};
-  presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR; // Type of present
-  presentInfo.waitSemaphoreCount = 0;    // No additional semaphores to wait for
-  presentInfo.pWaitSemaphores = nullptr; // No wait semaphores
-  presentInfo.swapchainCount = 1;        // Number of swapchains to present to
-  VkSwapchainKHR swapchains[] = {
-      _vkContext.GetSwapchain()};       // Array of swapchains
-  presentInfo.pSwapchains = swapchains; // Swapchains to present to
-  presentInfo.pImageIndices =
-      &imageIndex; // Which image in each swapchain to present
+  presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+  presentInfo.waitSemaphoreCount = 0;
+  presentInfo.pWaitSemaphores = nullptr;
+  presentInfo.swapchainCount = 1;
+  VkSwapchainKHR swapchains[] = {_vkContext.GetSwapchain()};
+  presentInfo.pSwapchains = swapchains;
+  presentInfo.pImageIndices = &imageIndex;
 
   vkQueuePresentKHR(_vkContext.GetGraphicsQueue(), &presentInfo);
   _currentFrame = (_currentFrame + 1) % _renderFences.size();
@@ -918,6 +937,45 @@ void ComputePipeline::resizeBuffers(uint32_t size) {
 }
 
 void ComputePipeline::SetUpRadixBuffers() {}
+
+void ComputePipeline::RecordImGuiRenderPass(VkCommandBuffer commandBuffer,
+                                            uint32_t imageIndex) {
+
+  _imGuiHandler.NewFrame();
+  _imGuiHandler.CreateUI();
+
+  _imGuiHandler.RecordImGuiRenderPass(commandBuffer, imageIndex);
+}
+
+void ComputePipeline::clearSwapchain(VkCommandBuffer commandBuffer,
+                                     uint32_t imageIndex) {
+  TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                  _vkContext.GetSwapchainImages()[imageIndex].image,
+                  VK_ACCESS_MEMORY_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+                  VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+                  VK_PIPELINE_STAGE_TRANSFER_BIT);
+
+  VkClearColorValue clearColor = {{0.0f, 0.0f, 0.0f, 1.0f}};
+  VkImageSubresourceRange range = {};
+  range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  range.baseMipLevel = 0;
+  range.levelCount = 1;
+  range.baseArrayLayer = 0;
+  range.layerCount = 1;
+
+  vkCmdClearColorImage(
+      commandBuffer, _vkContext.GetSwapchainImages()[imageIndex].image,
+      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &range);
+
+  TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                  VK_IMAGE_LAYOUT_GENERAL,
+                  _vkContext.GetSwapchainImages()[imageIndex].image,
+                  VK_ACCESS_TRANSFER_WRITE_BIT,
+                  VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
+                  VK_PIPELINE_STAGE_TRANSFER_BIT,
+                  VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+}
 
 void ComputePipeline::RecordAllCommandBuffers() {}
 

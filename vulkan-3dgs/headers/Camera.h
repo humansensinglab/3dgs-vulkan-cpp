@@ -2,9 +2,11 @@
 // MIT Licensed
 
 #pragma once
+#include "RenderSettings.h"
 #include "glm/glm.hpp"
 #include <glm/gtc/matrix_transform.hpp>
 enum class CameraMovement { FORWARD, BACKWARD, LEFT, RIGHT, UP, DOWN };
+
 struct CameraUniforms {
   alignas(16) glm::mat4 viewMatrix;
   alignas(16) glm::mat4 projMatrix;

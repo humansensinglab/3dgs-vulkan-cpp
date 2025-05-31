@@ -2,12 +2,14 @@
 // MIT Licensed
 
 #include "Application.h"
-#include <iostream>
 
 int main(int argc, char *argv[]) {
 
-  InputArgs args = checkArgs(argc, argv);
-  Application application(args);
+  auto args = checkArgs(argc, argv);
+  if (!args.has_value()) {
+    return -1;
+  }
+  Application application(*args);
   application.Start();
 
   while (application.IsRunning()) {

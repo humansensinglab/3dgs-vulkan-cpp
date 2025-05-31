@@ -5,13 +5,14 @@
 
 #include "BufferManager.h"
 #include "Camera.h"
+#include "Imgui3DGS.h"
 #include "VulkanContext.h"
 #include "glm/glm.hpp"
 #include "utils.h"
 #include <iostream>
 #include <map>
-
 #define NOT_SHARED_MEM_RENDERING
+#include "RenderSettings.h"
 
 const uint32_t WORKGROUP_SIZE = 256;
 const uint32_t RADIX_SORT_BINS = 256;
@@ -45,7 +46,8 @@ enum class PipelineType {
 
 class ComputePipeline {
 public:
-  ComputePipeline(VulkanContext &vkContext) : _vkContext(vkContext){};
+  ComputePipeline(VulkanContext &vkContext, ImguiUI &imguiHandler)
+      : _vkContext(vkContext), _imGuiHandler(imguiHandler){};
   ~ComputePipeline() { CleanUp(); }
 
   void Initialize(GaussianBuffers gaussianBuffer);
@@ -62,7 +64,7 @@ public:
 
 private:
   VulkanContext &_vkContext;
-
+  ImguiUI &_imGuiHandler;
   std::vector<VkCommandBuffer> _commandBuffers;
   std::vector<VkFence> _preprocessFences;
   std::vector<VkFence> _renderFences;
@@ -106,6 +108,9 @@ private:
   int getRadixIterations();
   void resizeBuffers(uint32_t size);
   void SetUpRadixBuffers();
+  void RecordImGuiRenderPass(VkCommandBuffer commandBuffer,
+                             uint32_t imageIndex);
+  void clearSwapchain(VkCommandBuffer commandBuffer, uint32_t imageIndex);
   // repeated layouts:: we can share them. TODO
   std::map<PipelineType, std::vector<DescriptorBinding>> SHADER_LAYOUTS = {
       {PipelineType::PREPROCESS,

@@ -5,14 +5,7 @@
 
 void Application::Start() {
 
-  if (!std::filesystem::exists(_pointCloudFile)) {
-    std::cerr << "Error: File '" << _pointCloudFile << "' does not exist!"
-              << std::endl;
-    return;
-  }
-
   _gaussianData = PLYLoader::LoadPLY(_pointCloudFile, _degree);
-
   _windowManager.InitWindow();
   int width, height;
   glfwGetFramebufferSize(_windowManager.getWindow(), &width, &height);
@@ -26,12 +19,14 @@ void Application::Start() {
   _renderPipeline->LoadGaussianData(std::move(_gaussianData));
   _renderPipeline->CreateBuffers();
   _renderPipeline->InitComputePipeline();
+
+  glfwSetInputMode(_windowManager.getWindow(), GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 }
 
 void Application::Render() {
 
   _frameTimer.UpdateTime();
-  _frameTimer.PrintStats();
+  //_frameTimer.PrintStats();
   glfwPollEvents();
 
   _renderPipeline->processInput(static_cast<float>(_frameTimer.deltaTime));

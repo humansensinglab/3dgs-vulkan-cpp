@@ -7,12 +7,16 @@
 #include "Camera.h"
 #include "ComputePipeline.h"
 #include "GaussianBase.h"
+#include "Imgui3DGS.h"
+#include "RenderSettings.h"
+
 class GaussianRenderer {
 
 public:
   GaussianRenderer(VulkanContext &vulkanContext, int shDegree)
       : _vulkanContext(vulkanContext), _bufferManager(),
-        _computePipeline(vulkanContext), _shDegree(shDegree) {
+        _imguiHandler(vulkanContext),
+        _computePipeline(vulkanContext, _imguiHandler), _shDegree(shDegree) {
 
     std::cout << "GaussianRenderer created" << std::endl;
   };
@@ -42,6 +46,7 @@ private:
   BufferManager _bufferManager;
   std::unique_ptr<GaussianBase> _gaussianData;
   ComputePipeline _computePipeline;
+  ImguiUI _imguiHandler;
 
   void CreateGaussianBuffers();
   void CreatePipelineStorageBuffers();

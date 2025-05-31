@@ -1,5 +1,6 @@
 #pragma once
 #include "GaussianRenderer.h"
+#include "Imgui3DGS.h"
 #include "PLYLoader.h"
 #include "VulkanContext.h"
 #include "Window.h"

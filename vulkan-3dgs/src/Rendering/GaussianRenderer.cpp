@@ -25,7 +25,9 @@ void GaussianRenderer::LoadGaussianData(
 }
 
 void GaussianRenderer::InitComputePipeline() {
+  _imguiHandler.Init();
   _computePipeline.setNumGaussians(_nGauss);
+  g_renderSettings.numGaussians = _nGauss;
   _computePipeline.Initialize(_buffers);
 }
 
@@ -47,6 +49,13 @@ void GaussianRenderer::InitializeCamera(float windowWidth, float windowHeight) {
   _camera->SetMovementSpeed(3.0f);
   _camera->SetMouseSensitivity(0.04f);
 
+  g_renderSettings.mouseSensitivity = 0.04;
+  g_renderSettings.speed = 3.0f;
+  g_renderSettings.fov = 45.0f;
+  g_renderSettings.nearPlane = 0.1;
+  g_renderSettings.farPlane = 45.0f;
+  g_renderSettings.enableCulling = true;
+
   glfwSetWindowUserPointer(_vulkanContext.getWindow(), this);
   // Set up mouse callback
   glfwSetCursorPosCallback(_vulkanContext.getWindow(), mouse_callback);
@@ -66,6 +75,9 @@ void GaussianRenderer::mouse_callback(GLFWwindow *window, double xpos,
     static bool firstMouse = true;
     static float lastX, lastY;
 
+    bool rightMousePressed =
+        glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+
     if (firstMouse) {
       lastX = static_cast<float>(xpos);
       lastY = static_cast<float>(ypos);
@@ -78,7 +90,12 @@ void GaussianRenderer::mouse_callback(GLFWwindow *window, double xpos,
 
     lastX = static_cast<float>(xpos);
     lastY = static_cast<float>(ypos);
-
+    if (!rightMousePressed) {
+      firstMouse = false;
+      g_renderSettings.camRotationActive = false;
+      return;
+    }
+    g_renderSettings.camRotationActive = true;
     renderer->_camera->ProcessMouseMovement(deltaX, deltaY);
   }
 }
