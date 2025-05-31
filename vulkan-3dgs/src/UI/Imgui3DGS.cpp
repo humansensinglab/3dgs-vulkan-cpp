@@ -24,8 +24,8 @@ void ImguiUI::Init() {
   init_info.PipelineCache = VK_NULL_HANDLE;
   init_info.DescriptorPool = _descriptorPool;
   init_info.Subpass = 0;
-  init_info.MinImageCount = _vkContext.GetSwapchainImages().size();
-  init_info.ImageCount = _vkContext.GetSwapchainImages().size();
+  init_info.MinImageCount = uint32_t(_vkContext.GetSwapchainImages().size());
+  init_info.ImageCount = uint32_t(_vkContext.GetSwapchainImages().size());
   init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
   init_info.Allocator = nullptr;
   init_info.CheckVkResultFn = nullptr;
@@ -34,6 +34,9 @@ void ImguiUI::Init() {
   ImGui_ImplVulkan_Init(&init_info);
 
   ImGui_ImplVulkan_CreateFontsTexture();
+
+  _w = _vkContext.GetSwapchainExtent().width;
+  _h = _vkContext.GetSwapchainExtent().height;
 }
 
 void ImguiUI::CreateRenderPass() {
@@ -133,7 +136,7 @@ void ImguiUI::CreateDescriporPool() {
   VkDescriptorPoolCreateInfo poolInfo = {};
   poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-  poolInfo.maxSets = 1000 * poolSizes.size();
+  poolInfo.maxSets = 1000 * uint32_t(poolSizes.size());
   poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
   poolInfo.pPoolSizes = poolSizes.data();
 
@@ -191,7 +194,8 @@ void ImguiUI::NewFrame() {
 void ImguiUI::CreateUI() {
 
   ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Once);
-  ImGui::SetNextWindowSize(ImVec2(330, 800), ImGuiCond_Once);
+  ImGui::SetNextWindowSize(ImVec2(std::min(_w / 3, 350), std::min(_h, 720)),
+                           ImGuiCond_Once);
   ImGui::Begin("3D Gaussian Splatting");
 
   // FPS
@@ -317,8 +321,8 @@ void ImguiUI::CreateUI() {
     return;
 
   if (ImGui::Begin("Camera Sequence")) {
-    ImGui::SetNextWindowPos(ImVec2(800, 500), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(300, 200), ImGuiCond_Once);
+    ImGui::SetNextWindowPos(ImVec2(_w - 400, _h - 300), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
     ImGui::Separator();
 
     if (ImGui::Button("Add Keyframe")) {

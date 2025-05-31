@@ -38,6 +38,8 @@ void Sequence::Play(float deltaTime) {
     } else {
       g_renderSettings.playing = false;
     }
+  } else {
+    g_renderSettings.playing = false;
   }
 }
 

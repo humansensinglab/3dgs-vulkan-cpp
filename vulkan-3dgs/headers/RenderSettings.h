@@ -5,7 +5,7 @@
 struct RenderSettings {
 
   // Display
-  int numGaussians;
+  uint32_t numGaussians;
   int numRendered;
   int width;
   int height;

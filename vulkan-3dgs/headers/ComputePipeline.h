@@ -106,7 +106,7 @@ private:
 
   void submitCommandBuffer(uint32_t imageIndex, bool waitSem = true);
   int getRadixIterations();
-  void resizeBuffers(uint32_t size);
+  void resizeBuffers(float size);
   void SetUpRadixBuffers();
   void RecordImGuiRenderPass(VkCommandBuffer commandBuffer,
                              uint32_t imageIndex);
@@ -237,7 +237,7 @@ private:
          "outputImage"}}},
   };
 
-  int _sizeBufferMax = 0;
+  uint32_t _sizeBufferMax = 0;
   GaussianBuffers _gaussianBuffers;
   BufferManager *_buffManager;
   int32_t _numGaussians;

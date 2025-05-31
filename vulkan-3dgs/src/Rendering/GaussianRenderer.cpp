@@ -20,7 +20,7 @@ void GaussianRenderer::LoadGaussianData(
 
   _gaussianData = std::move(gaussianData);
 
-  _nGauss = _gaussianData->GetCount();
+  _nGauss = uint32_t(_gaussianData->GetCount());
   std::cout << " Gaussian data loaded!" << std::endl;
 }
 
@@ -43,16 +43,16 @@ void GaussianRenderer::Render() { _computePipeline.RenderFrame(); }
 
 void GaussianRenderer::InitializeCamera(float windowWidth, float windowHeight) {
   float aspectRatio = windowWidth / windowHeight;
-  _camera = std::make_unique<Camera>(windowWidth, windowHeight, 45.0f,
+  _camera = std::make_unique<Camera>(int(windowWidth), int(windowHeight), 45.0f,
                                      aspectRatio, 0.1f, 1000.0f);
 
   _camera->SetMovementSpeed(3.0f);
   _camera->SetMouseSensitivity(0.04f);
 
-  g_renderSettings.mouseSensitivity = 0.04;
+  g_renderSettings.mouseSensitivity = 0.04f;
   g_renderSettings.speed = 3.0f;
   g_renderSettings.fov = 45.0f;
-  g_renderSettings.nearPlane = 0.1;
+  g_renderSettings.nearPlane = 0.1f;
   g_renderSettings.farPlane = 45.0f;
   g_renderSettings.enableCulling = true;
 
@@ -153,7 +153,7 @@ void GaussianRenderer::CreatePipelineStorageBuffers() {
   CreateWriteBuffers<glm::vec4>(_buffers.boundingBox, "boundingBox");
   CreateWriteBuffers<uint64_t>(_buffers.keysRadix, "keysRadix", 10, true);
   CreateWriteBuffers<uint64_t>(_buffers.keys, "keys", 10, true);
-  CreateWriteBuffers<uint32_t>(_buffers.values, "values", true, 10);
+  CreateWriteBuffers<uint32_t>(_buffers.values, "values", 10, true);
   CreateWriteBuffers<uint32_t>(_buffers.valuesRadix, "valuesRadix", 10, true);
   CreateWriteBuffers<uint32_t>(_buffers.histogram, "histogram", 10, true);
   CreateRangesBuffer();

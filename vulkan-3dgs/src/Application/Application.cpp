@@ -34,5 +34,5 @@ void Application::Render() {
   _renderPipeline->Render();
 
   if (g_renderSettings.playing)
-    _seqRecorder.Play(_frameTimer.deltaTime);
+    _seqRecorder.Play(static_cast<float>(_frameTimer.deltaTime));
 }

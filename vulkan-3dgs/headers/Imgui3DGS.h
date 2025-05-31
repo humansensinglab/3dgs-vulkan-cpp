@@ -40,5 +40,6 @@ private:
   float currentTime = 0.0f;
   int selectedKeyframe = -1;
 
+  int _w, _h;
   void CleanUp();
 };

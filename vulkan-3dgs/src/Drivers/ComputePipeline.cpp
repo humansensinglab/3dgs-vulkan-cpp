@@ -397,8 +397,7 @@ void ComputePipeline::RecordCommandPreprocess(uint32_t imageIndex) {
       uint32_t step;
       int32_t numElements;
       int32_t readFromA;
-    } pushConstants = {step, (uint32_t)_numGaussians,
-                       (step % 2) == 0 ? (uint32_t)1 : (uint32_t)0};
+    } pushConstants = {step, _numGaussians, (step % 2) == 0 ? 1 : 0};
 
     vkCmdPushConstants(commandBuffer, _pipelineLayouts[PipelineType::PREFIXSUM],
                        VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants),
@@ -742,7 +741,7 @@ void ComputePipeline::RenderFrame() {
   g_renderSettings.numRendered = totalRendered;
 
   if (totalRendered > _sizeBufferMax) {
-    resizeBuffers(totalRendered * 1.25);
+    resizeBuffers(totalRendered * 1.25f);
   }
 
   vkResetFences(_vkContext.GetLogicalDevice(), 1,
@@ -902,7 +901,7 @@ int ComputePipeline::getRadixIterations() {
   return (totalBits + 7) / 8;
 }
 
-void ComputePipeline::resizeBuffers(uint32_t size) {
+void ComputePipeline::resizeBuffers(float size) {
   // We could implement memory Pool?
   VkPhysicalDevice physicalDevice = _vkContext.GetPhysicalDevice();
   VkDevice device = _vkContext.GetLogicalDevice();
@@ -913,13 +912,13 @@ void ComputePipeline::resizeBuffers(uint32_t size) {
   _buffManager->DestroyBuffer(device, _gaussianBuffers.keysRadix);
   _buffManager->DestroyBuffer(device, _gaussianBuffers.histogram);
 
-  VkDeviceSize bufferSizeKey = sizeof(int64_t) * size;
-  VkDeviceSize bufferSizeValue = sizeof(int32_t) * size;
+  VkDeviceSize bufferSizeKey = sizeof(int64_t) * int(size);
+  VkDeviceSize bufferSizeValue = sizeof(int32_t) * int(size);
 
   uint32_t elementsPerWorkgroup =
       WORKGROUP_SIZE * blocks_per_workgroup; // 256 * 32 = 8192
   uint32_t numWorkgroups =
-      (size + elementsPerWorkgroup - 1) / elementsPerWorkgroup;
+      (int(size) + elementsPerWorkgroup - 1) / elementsPerWorkgroup;
   VkDeviceSize histogramSize =
       RADIX_SORT_BINS * numWorkgroups * sizeof(uint32_t);
 
@@ -941,7 +940,7 @@ void ComputePipeline::resizeBuffers(uint32_t size) {
   _gaussianBuffers.histogram =
       _buffManager->CreateBuffer(device, physicalDevice, histogramSize, usage,
                                  VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-  _sizeBufferMax = size;
+  _sizeBufferMax = uint32_t(size);
   UpdateAllDescriptorSets(PipelineType::ASSIGN_TILE_IDS);
   UpdateAllDescriptorSets(PipelineType::RADIX_HISTOGRAM_0);
   UpdateAllDescriptorSets(PipelineType::RADIX_HISTOGRAM_1);
