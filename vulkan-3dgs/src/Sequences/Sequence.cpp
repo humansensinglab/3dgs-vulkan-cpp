@@ -29,11 +29,23 @@ void Sequence::Play(float deltaTime) {
       g_renderSettings.farPlane = glm::mix(_sequence->at(keyA).farPlane,
                                            _sequence->at(keyB).farPlane, alpha);
 
-      g_renderSettings.showWireframe = (alpha < 0.5f)
-                                           ? _sequence->at(keyA).wireframe
-                                           : _sequence->at(keyB).wireframe;
+      g_renderSettings.showWireframe = _sequence->at(keyB).wireframe;
+
+      g_renderSettings.yaw =
+          LerpAngle(_sequence->at(keyA).yaw, _sequence->at(keyB).yaw, alpha);
+      g_renderSettings.pitch = LerpAngle(_sequence->at(keyA).pitch,
+                                         _sequence->at(keyB).pitch, alpha);
     } else {
       g_renderSettings.playing = false;
     }
   }
+}
+
+inline float Sequence::LerpAngle(float a, float b, float t) {
+  float diff = b - a;
+  while (diff > 180.0f)
+    diff -= 360.0f;
+  while (diff < -180.0f)
+    diff += 360.0f;
+  return a + diff * t;
 }

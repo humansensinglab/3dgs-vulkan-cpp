@@ -44,6 +44,8 @@ struct CameraKeyframe {
   bool wireframe;
   float nearPlane;
   float farPlane;
+  float yaw;
+  float pitch;
 };
 // Global instance
 extern RenderSettings g_renderSettings;

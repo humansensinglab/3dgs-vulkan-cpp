@@ -329,6 +329,8 @@ void ImguiUI::CreateUI() {
       kf.wireframe = g_renderSettings.showWireframe;
       kf.nearPlane = g_renderSettings.nearPlane;
       kf.farPlane = g_renderSettings.farPlane;
+      kf.pitch = g_renderSettings.pitch;
+      kf.yaw = g_renderSettings.yaw;
       sequence.push_back(kf);
     }
 
@@ -357,9 +359,15 @@ void ImguiUI::CreateUI() {
         ImGui::Text("Time: %.2f", sequence[i].time);
         ImGui::Text("Position: (%.1f, %.1f, %.1f)", sequence[i].position.x,
                     sequence[i].position.y, sequence[i].position.z);
+        ImGui::SameLine();
+        ImGui::Text("Pitch: %.2f, Yaw: %2f", sequence[i].pitch,
+                    sequence[i].yaw);
         ImGui::Text("FOV: %.1f", sequence[i].fov);
+        ImGui::SameLine();
         ImGui::Text("Wireframe: %s", sequence[i].wireframe ? "Yes" : "No");
+        ImGui::SameLine();
         ImGui::Text("Near: %.2f", sequence[i].nearPlane);
+        ImGui::SameLine();
         ImGui::Text("Far: %.2f", sequence[i].farPlane);
 
         ImGui::Separator();

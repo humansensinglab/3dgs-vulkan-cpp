@@ -16,4 +16,6 @@ public:
 private:
   std::vector<CameraKeyframe> *_sequence;
   float _currTime = 0;
+
+  inline float LerpAngle(float a, float b, float t);
 };

@@ -36,6 +36,9 @@ void Camera::ProcessMouseMovement(float deltaX, float deltaY,
   deltaX *= g_renderSettings.mouseSensitivity;
   deltaY *= g_renderSettings.mouseSensitivity;
 
+  if (g_renderSettings.playing) {
+    return;
+  }
   // Standard FPS camera - rotate around world axes
   _yaw += deltaX;
   _pitch += deltaY;
@@ -102,6 +105,11 @@ CameraUniforms Camera::getUniforms() {
   _uniforms.imageHeight = _h;
 
   _uniforms.camPos = g_renderSettings.pos;
+  if (g_renderSettings.playing) {
+    _yaw = g_renderSettings.yaw;
+    _pitch = g_renderSettings.pitch;
+    UpdateCameraVectors();
+  }
   _uniforms.viewMatrix = GetViewMatrix();
   _uniforms.projMatrix = GetProjectionMatrix();
 
