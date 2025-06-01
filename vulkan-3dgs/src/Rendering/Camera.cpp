@@ -93,13 +93,11 @@ CameraUniforms Camera::getUniforms() {
   // a lot of this can be just stored in first frame... for now whatever....
   float fov_radians = glm::radians(g_renderSettings.fov);
   int mult = 1;
-#ifdef __APPLE__
-    mult =2.0f;
-#endif
+
   float fov_y = 2.0f * atan(tan(fov_radians / 2.0f) / _aspectRatio);
 
-  _uniforms.focal_x = _w / (2.0f*mult * tan(fov_radians / 2.0f));
-  _uniforms.focal_y = _h / (2.0f*mult * tan(fov_y / 2.0f));
+  _uniforms.focal_x = _w / (2.0f * mult * tan(fov_radians / 2.0f));
+  _uniforms.focal_y = _h / (2.0f * mult * tan(fov_y / 2.0f));
 
   _uniforms.tan_fovx = tan(fov_radians / 2.0f);
   _uniforms.tan_fovy = tan(fov_y / 2.0f);

@@ -247,6 +247,11 @@ private:
   VkDescriptorSet _radixDescriptorSets[12];
 
   VkBuffer _resultBufferPrefix;
+#ifdef __APPLE__
+  int _windowResize = 2;
+#else
+  int _windowResize = 1;
+#endif
 
   inline uint32_t ReadFinalPrefixSum() {
 

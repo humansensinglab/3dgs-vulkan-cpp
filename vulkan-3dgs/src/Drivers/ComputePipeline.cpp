@@ -462,7 +462,7 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
                       _computePipelines[PipelineType::ASSIGN_TILE_IDS]);
 
     VkExtent2D extent = _vkContext.GetSwapchainExtent();
-    uint32_t tileX = (extent.width + 15) / 16;
+    uint32_t tileX = (extent.width / _windowResize + 15) / 16;
     struct {
       uint32_t tile;
       int32_t nGauss;
@@ -620,7 +620,7 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
       uint32_t h;
       uint32_t wireframe;
       float gaussScale;
-    } pcRender = {extent.width, extent.height,
+    } pcRender = {extent.width / _windowResize, extent.height / _windowResize,
                   uint32_t(g_renderSettings.showWireframe),
                   g_renderSettings.gaussianScale};
 
@@ -634,8 +634,8 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
                             &_descriptorSets[PipelineType::RENDER][imageIndex],
                             0, nullptr);
 
-    vkCmdDispatch(commandBuffer, (extent.width + 15) / 16,
-                  (extent.height + 15) / 16, 1);
+    vkCmdDispatch(commandBuffer, (extent.width / _windowResize + 15) / 16,
+                  (extent.height / _windowResize + 15) / 16, 1);
     ///////////////////////////////////////////////////////////////////////////////////////
     VkMemoryBarrier barrier_x = {};
     barrier_x.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;

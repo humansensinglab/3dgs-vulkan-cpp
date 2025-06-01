@@ -13,12 +13,12 @@ void Application::Start() {
   _vkContext.emplace(_windowManager.getWindow());
   _vkContext->InitContext();
 
-/*#ifdef __APPLE__
+#ifdef __APPLE__
   width /= 2;
   height /= 2;
 #endif
-    */
-    std::cout << width << height << std::endl;
+
+  std::cout << width << height << std::endl;
 
   _renderPipeline.emplace(*_vkContext, _degree, _seqRecorder);
   _renderPipeline->InitializeCamera(static_cast<float>(width),
