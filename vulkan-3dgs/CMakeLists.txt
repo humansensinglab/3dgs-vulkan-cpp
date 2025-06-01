@@ -49,9 +49,29 @@ else()
     )
 endif()
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+
+
+if(WIN32)
+    set(SHADER_COMPILE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/src/scripts/compile.bat")
+elseif(APPLE) 
+    set(SHADER_COMPILE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/src/scripts/compile_shaders.sh")
+endif()
+
+# Create custom target to compile shaders
+add_custom_target(compile_shaders ALL
+    COMMAND ${SHADER_COMPILE_SCRIPT}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/scripts
+    COMMENT "Compiling shaders for ${CMAKE_SYSTEM_NAME}..."
+    VERBATIM
+)
+
+
+add_dependencies(vulkan-3dgs compile_shaders)
+
+# Copy compiled shaders to output directory  
+add_custom_command(TARGET vulkan-3dgs POST_BUILD 
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_CURRENT_SOURCE_DIR}/src/Shaders"
-    "$<TARGET_FILE_DIR:${PROJECT_NAME}>/Shaders"
-    COMMENT "Copying shader files..."
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Shaders       
+    $<TARGET_FILE_DIR:vulkan-3dgs>/Shaders
+    COMMENT "Copying shaders to output directory"
 )

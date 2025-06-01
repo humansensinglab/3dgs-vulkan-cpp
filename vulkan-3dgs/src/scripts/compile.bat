@@ -1,10 +1,9 @@
-
 @echo off
 REM Windows Shader Compilation Script
 
 echo Compiling shaders for Windows...
 
-REM Compile all shaders with correct SPIR-V versions (hardcoded paths)
+REM Compile all shaders with correct SPIR-V versions (shaders in src/Shaders/)
 glslangValidator.exe -V --target-env spirv1.3 ../Shaders/debug.comp -o ../Shaders/debug.spv
 glslangValidator.exe -V --target-env spirv1.3 ../Shaders/preprocess.comp -o ../Shaders/preprocess.spv
 glslangValidator.exe -V --target-env spirv1.3 ../Shaders/debugGaussians.comp -o ../Shaders/nearest.spv
