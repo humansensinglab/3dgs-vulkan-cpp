@@ -472,8 +472,8 @@ VkSurfaceFormatKHR VulkanContext::ChooseBestFormatSurface(
       return {VK_FORMAT_R8G8B8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
     }
     for (const auto &format : formats) {
-      if ((format.format == VK_FORMAT_R8G8B8A8_UNORM ||
-           format.format == VK_FORMAT_B8G8R8A8_UNORM) &&
+      if ((format.format == VK_FORMAT_R8G8B8A8_UNORM
+           /* ||  format.format == VK_FORMAT_B8G8R8A8_UNORM*/) &&
           format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
         return format;
     }
@@ -499,7 +499,8 @@ VulkanContext::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) {
     //     return VkExtent2D({capabilities.currentExtent.width / 2,
     //                        capabilities.currentExtent.height / 2});
     // #endif
-      std::cout << capabilities.currentExtent.width << "   fr  " << capabilities.currentExtent.height <<std::endl;
+    std::cout << capabilities.currentExtent.width << "   fr  "
+              << capabilities.currentExtent.height << std::endl;
     return capabilities.currentExtent;
   } else {
     int width, height;
