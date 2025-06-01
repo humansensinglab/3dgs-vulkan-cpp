@@ -35,8 +35,12 @@ void ImguiUI::Init() {
 
   ImGui_ImplVulkan_CreateFontsTexture();
 
-  _w = _vkContext.GetSwapchainExtent().width;
-  _h = _vkContext.GetSwapchainExtent().height;
+  int windowResize = 1;
+#ifdef __APPLE__
+  windowResize = 2;
+#endif
+  _w = _vkContext.GetSwapchainExtent().width / windowResize;
+  _h = _vkContext.GetSwapchainExtent().height / windowResize;
 }
 
 void ImguiUI::CreateRenderPass() {

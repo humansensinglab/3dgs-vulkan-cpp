@@ -207,7 +207,12 @@ void GaussianRenderer::CreateCopyStagingBuffer() {
 
 void GaussianRenderer::CreateRangesBuffer() {
   VkExtent2D ext = _vulkanContext.GetSwapchainExtent();
-  int tiles = (ext.width + 15) / 16 * (ext.height + 15) / 16;
+  int windowResize = 1;
+#ifdef __APPLE__
+  windowResize = 2;
+#endif
+  int tiles = (ext.width / windowResize + 15) / 16 *
+              (ext.height / windowResize + 15) / 16;
 
   _buffers.ranges = _bufferManager.CreateBuffer(
       _vulkanContext.GetLogicalDevice(), _vulkanContext.GetPhysicalDevice(),

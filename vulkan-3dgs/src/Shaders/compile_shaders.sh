@@ -10,10 +10,10 @@ glslangValidator -V --target-env spirv1.3 ../../Shaders/prefixsum.comp -o ../../
 glslangValidator -V --target-env spirv1.5 ../../Shaders/idkeys.comp -o ../../Shaders/idkeys.spv
 glslangValidator -V --target-env spirv1.3 ../../Shaders/tile_boundaries.comp -o ../../Shaders/boundaries.spv
 glslangValidator -V --target-env spirv1.5 ../../Shaders/render_shared_mem.comp -o ../../Shaders/render_shared.spv
-glslangValidator -V --target-env spirv1.5 ../../Shaders/render.comp -o ../../Shaders/render.spv
+
 
 # Radix sort shaders (need APPLE define for MoltenVK compatibility)
 glslangValidator -V --target-env spirv1.5 -DAPPLE ../../Shaders/radix_sort/radixsort.comp -o ../../Shaders/sort.spv
 glslangValidator -V --target-env spirv1.5 -DAPPLE ../../Shaders/radix_sort/histogram.comp -o ../../Shaders/histogram.spv
-
+glslangValidator -V --target-env spirv1.5 -DAPPLE ../../Shaders/render.comp -o ../../Shaders/render.spv
 echo "macOS shader compilation complete!"
