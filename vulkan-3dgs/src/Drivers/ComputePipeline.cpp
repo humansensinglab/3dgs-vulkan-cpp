@@ -139,6 +139,7 @@ void ComputePipeline::CreateCommandBuffers() {
 
   size_t size_sw = _vkContext.GetSwapchainImages().size();
   _commandBuffers.resize(size_sw);
+  _renderCommandBuffers.resize(size_sw);
   VkCommandBufferAllocateInfo cbAllocInfo = {};
   cbAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   cbAllocInfo.commandPool = _vkContext.GetCommandPool();
@@ -149,7 +150,9 @@ void ComputePipeline::CreateCommandBuffers() {
   cbAllocInfo.commandBufferCount = static_cast<uint32_t>(size_sw);
 
   if (vkAllocateCommandBuffers(_vkContext.GetLogicalDevice(), &cbAllocInfo,
-                               _commandBuffers.data()) != VK_SUCCESS)
+                               _commandBuffers.data()) != VK_SUCCESS ||
+      vkAllocateCommandBuffers(_vkContext.GetLogicalDevice(), &cbAllocInfo,
+                               _renderCommandBuffers.data()) != VK_SUCCESS)
     throw std::runtime_error("Fail to allocate buffers");
 
   std::cout << " Command buffer allocated: " << size_sw << std::endl;
@@ -439,7 +442,7 @@ void ComputePipeline::RecordCommandPreprocess(uint32_t imageIndex) {
 
 void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
                                           int numRendered) {
-  VkCommandBuffer commandBuffer = _commandBuffers[imageIndex];
+  VkCommandBuffer commandBuffer = _renderCommandBuffers[imageIndex];
 
   // Begin recording
   VkCommandBufferBeginInfo beginInfo = {};
@@ -731,6 +734,7 @@ void ComputePipeline::RenderFrame() {
   }
 
   vkResetCommandBuffer(_commandBuffers[imageIndex], 0);
+  vkResetCommandBuffer(_renderCommandBuffers[imageIndex], 0);
   RecordCommandPreprocess(imageIndex);
   submitCommandBuffer(imageIndex);
 
@@ -871,7 +875,6 @@ void ComputePipeline::submitCommandBuffer(uint32_t imageIndex, bool waitSem) {
   VkSubmitInfo submitInfo = {};
   submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO; // Type of submit
   submitInfo.commandBufferCount = 1; // Number of command buffers to submit
-  submitInfo.pCommandBuffers = &_commandBuffers[imageIndex];
 
   VkSemaphore waitSemaphores[] = {_semaphores[_currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT};
@@ -883,6 +886,12 @@ void ComputePipeline::submitCommandBuffer(uint32_t imageIndex, bool waitSem) {
   }
   VkFence fence = (waitSem) ? _preprocessFences[_currentFrame]
                             : _renderFences[_currentFrame];
+
+  VkCommandBuffer *bufferToSubmit = waitSem
+                                        ? &_commandBuffers[imageIndex]
+                                        : &_renderCommandBuffers[imageIndex];
+
+  submitInfo.pCommandBuffers = bufferToSubmit;
 
   if (vkQueueSubmit(_vkContext.GetGraphicsQueue(), // Queue to
                                                    // submit to

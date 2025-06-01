@@ -66,6 +66,7 @@ private:
   VulkanContext &_vkContext;
   ImguiUI &_imGuiHandler;
   std::vector<VkCommandBuffer> _commandBuffers;
+  std::vector<VkCommandBuffer> _renderCommandBuffers;
   std::vector<VkFence> _preprocessFences;
   std::vector<VkFence> _renderFences;
   std::vector<VkSemaphore> _semaphores;
