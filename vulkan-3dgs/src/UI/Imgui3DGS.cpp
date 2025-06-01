@@ -319,10 +319,10 @@ void ImguiUI::CreateUI() {
 
   if (!g_renderSettings.sequenceMode)
     return;
-
+  ImGui::SetNextWindowPos(ImVec2(_w - 400, _h - 300), ImGuiCond_Once);
+  ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
   if (ImGui::Begin("Camera Sequence")) {
-    ImGui::SetNextWindowPos(ImVec2(_w - 400, _h - 300), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
+
     ImGui::Separator();
 
     if (ImGui::Button("Add Keyframe")) {

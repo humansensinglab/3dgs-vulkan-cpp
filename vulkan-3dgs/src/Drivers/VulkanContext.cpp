@@ -119,11 +119,10 @@ void VulkanContext::CreateSurface() {
 }
 
 void VulkanContext::CreateLogicalDevice() {
-  QueueFamilyIndices ind = GetQueueFamilies(_vcxMainDevice.physicalDevice);
 
+  QueueFamilyIndices ind = GetQueueFamilies(_vcxMainDevice.physicalDevice);
   std::vector<VkDeviceQueueCreateInfo> deviceQueueInfos;
   std::set<int> queuesIndex = {ind.graphicsFamily, ind.presentationFamily};
-
   std::set<int>::iterator it;
   for (it = queuesIndex.begin(); it != queuesIndex.end(); ++it) {
     // queues for logical Device
@@ -133,25 +132,28 @@ void VulkanContext::CreateLogicalDevice() {
     queueInfo.queueCount = 1;
     float priority = 1.0f;
     queueInfo.pQueuePriorities = &priority;
-
     deviceQueueInfos.push_back(queueInfo);
   }
 
   VkPhysicalDeviceVulkan12Features vulkan12Features{};
   vulkan12Features.sType =
       VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-  vulkan12Features.pNext = nullptr; // No more features to chain
-  vulkan12Features.shaderSharedInt64Atomics =
-      VK_TRUE; // Required for the radix sort
-  vulkan12Features.shaderBufferInt64Atomics = VK_TRUE; // Good to have
+  vulkan12Features.pNext = nullptr;
 
-  // Create features2 struct
+#ifndef __APPLE__
+  vulkan12Features.shaderSharedInt64Atomics = VK_TRUE;
+  vulkan12Features.shaderBufferInt64Atomics = VK_TRUE;
+#else
+  vulkan12Features.shaderSharedInt64Atomics =
+      VK_FALSE; // Not supported on MoltenVK
+  vulkan12Features.shaderBufferInt64Atomics =
+      VK_FALSE; // Not supported on MoltenVK
+#endif
+
   VkPhysicalDeviceFeatures2 features2{};
   features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-  features2.pNext = &vulkan12Features;      // Chain the Vulkan 1.2 features
-  features2.features.shaderInt64 = VK_TRUE; // Your existing feature
+  features2.pNext = &vulkan12Features;
 
-  // Modify your device create info
   VkDeviceCreateInfo deviceInfo = {};
   deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   deviceInfo.pNext = &features2; // Point to the features2
@@ -171,7 +173,6 @@ void VulkanContext::CreateLogicalDevice() {
                    &_vcxGraphicsQueue);
   vkGetDeviceQueue(_vcxMainDevice.logicalDevice, ind.presentationFamily, 0,
                    &_vcxPresentationQueue);
-
   std::cout << "---VkLogicalDevice created Successfully---" << std::endl;
 }
 
