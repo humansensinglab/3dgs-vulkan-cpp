@@ -9,36 +9,30 @@ Cross-platform 3D Gaussian Splatting implementation using **pure Vulkan compute 
 
 Example ply : https://huggingface.co/datasets/dylanebert/3dgs/tree/main/bonsai/point_cloud/iteration_30000
 
-## 🚀 Why Vulkan?
-
 Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This project uses **standard Vulkan 1.3**, ensuring:
 
 - ✅ **Cross-platform**: Runs on Windows, Linux, and macOS
-- ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon (still not working on Mac, need to activate certain extensions)
-- ✅ **No vendor lock-in**: Fully open, portable GPU compute
-- ✅ **Cloud-ready**: Compatible with any Vulkan-capable infrastructure
+- ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon
 
 ---
 
-## 🛠️ Features
+## Features
 
 - **High Performance**: 30-60 FPS on 2.6M+ Gaussians at 1800x1600 resolution
-- **Pure Vulkan**: Cross-vendor compute pipeline with no CUDA dependencies
 - **Real-time Interaction**: WASD + mouse camera control with immediate feedback
 - **Advanced Rendering**: View-dependent Spherical Harmonics (degrees 0–3)
 - **Smart Memory Management**: Persistent buffer mappings and dynamic resizing
 - **Flexible Architecture**: Compile-time shared memory optimization options
 
-### 🎬 NEW: Keyframe Animation System
+### Keyframe Animation System
 
-**Professional Camera Animation**:
-- 📹 **Keyframe Recording**: Capture camera positions, rotations, and rendering parameters at specific time points
-- 🎯 **Smooth Interpolation**: Automatic interpolation between keyframes for cinematic camera movements
-- ⏯️ **Playback Control**: Play, stop, and loop through your animation sequences
-- 📊 **Parameter Animation**: Animate FOV, near/far planes, wireframe mode, and more
-- 🎞️ **Video Export Ready**: Fixed timestep rendering for consistent video output
+**Camera Animation**:
+-  **Keyframe Recording**: Capture camera positions, rotations, and rendering parameters at specific time points
+- **Smooth Interpolation**: Automatic interpolation between keyframes for cinematic camera movements
+- ⏯**Playback Control**: Play, stop, and loop through your animation sequences
+- **Parameter Animation**: Animate FOV, near/far planes, wireframe mode, and more
 
-### 🎛️ Configurable Parameters
+### 🎛 Configurable Parameters
 
 **Real-time Controls via ImGui**:
 - **Camera Settings**:
@@ -82,96 +76,11 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 
 **The core 3DGS algorithm is fully functional and production-ready.**
 
-## Building from Source
 
-### Prerequisites
-- Vulkan SDK 1.3+ installed
-- Visual Studio 2022 (Windows) or GCC/Clang (Linux/macOS)
-- CMake 3.10+
-- Compatible GPU with Vulkan support
 
-### Step 1: Clone the Repository
-```bash
-git clone https://github.com/AlejandroAmat/3dgs-vulkan-cpp.git
-cd 3dgs-vulkan-cpp
-```
 
-### Step 2: Create Build Directory
-```bash
-mkdir build
-cd build
-```
 
-### Step 3: Configure with CMake
-```bash
-cmake ..
-```
-
-For Visual Studio users, you can specify the generator:
-```bash
-cmake -G "Visual Studio 17 2022" ..
-```
-
-### Step 4: Build the Project
-```bash
-# For Release build (recommended)
-cmake --build . --config Release
-
-# For Debug build
-cmake --build . --config Debug
-```
-
-Alternatively, if you generated Visual Studio files:
-- Open `build/vulkan-3dgs.sln`
-- Set `vulkan-3dgs` as the startup project
-- Press F5 to build and run
-
-### Step 5: Locate the Executable
-The executable will be created in:
-- **Windows**: `build/vulkan-3dgs/Release/vulkan-3dgs.exe` (or `Debug/`)
-- **Linux/macOS**: `build/vulkan-3dgs/vulkan-3dgs`
-
-### Step 6: Run the Application
-```bash
-# Navigate to the executable directory
-cd vulkan-3dgs/Release
-
-# Run with a PLY file
-./vulkan-3dgs.exe path/to/your/pointcloud.ply
-```
-
-### Directory Structure After Build
-```
-build/
-└── vulkan-3dgs/
-    └── Release/
-        ├── vulkan-3dgs.exe
-        ├── Shaders/
-        │   ├── preprocess.spv
-        │   ├── render.spv
-        │   └── ... (other shader files)
-        └── (place your .ply file here or specify full path)
-```
-
-### Troubleshooting Build Issues
-
-**CMake can't find Vulkan:**
-- Ensure Vulkan SDK is installed
-- Check that `VULKAN_SDK` environment variable is set
-- On Windows: `echo %VULKAN_SDK%`
-- On Linux/macOS: `echo $VULKAN_SDK`
-
-**Shader files not found:**
-- The build process automatically copies `.spv` files from `src/Shaders/`
-- Ensure shader files exist in the source directory
-
-**Link errors with GLFW:**
-- The project uses precompiled GLFW libraries in `third-party/GLFW/lib-vc2022`
-- For other compilers, you may need to rebuild GLFW
-
----
-
-## 🎮 Usage & Controls
+##  Usage & Controls
 
 ### Camera Controls
 - **WASD** - Move forward/backward/left/right
@@ -195,18 +104,10 @@ build/
 
 ---
 
-## 🔄 Optimization & Polish
-
-- **Shared Memory Refinement** — The `SHARED_MEM_RENDER` compile-time option uses workgroup shared memory for significantly faster rendering, but has small tile boundary artifacts due to GLSL limitations. Working to eliminate these visual issues while preserving the performance gains.
-- **Performance Tuning** — Achieving consistent 30+ FPS across all hardware configurations
-
----
-
 ## ⏳ Roadmap
 
 ### Platform Expansion  
 - **Video Export** — Direct MP4/AVI export from animation sequences
-- **Cross-Platform Build** — Universal CMake configuration for all OS
 - **Mobile Support** — Native Android app + iOS via MoltenVK
 
 ### User Experience
@@ -216,7 +117,7 @@ build/
 
 ---
 
-## 🧰 Tech Stack
+## Tech Stack
 
 - **Graphics API**: Vulkan 1.3 (compute + graphics)
 - **Language**: C++17 with modern practices
@@ -230,7 +131,7 @@ build/
 
 ---
 
-## 🎯 Performance
+## Performance
 
 **Current Metrics** (2.6M Gaussians at 1800x1600):
 - **Framerate**: 30-60 FPS with full 3DGS pipeline active
@@ -243,11 +144,6 @@ build/
 
 ---
 
-## 🧭 Project Vision
-
-> **Democratize 3D Gaussian Splatting beyond NVIDIA hardware.**
-
-Make high-performance neural radiance field rendering accessible on **any GPU**, **any platform**, fully **open source**, without proprietary dependencies.
 
 **Requirements**:
 - Vulkan 1.3 compatible GPU and drivers
@@ -257,15 +153,6 @@ Make high-performance neural radiance field rendering accessible on **any GPU**,
 
 ---
 
-## 🤝 Contributing
-
-This project aims to advance open 3DGS rendering. Contributions welcome for:
-- Performance optimizations
-- Platform-specific improvements  
-- New rendering features
-- Mobile platform support
-
----
 
 ## 📄 License
 
