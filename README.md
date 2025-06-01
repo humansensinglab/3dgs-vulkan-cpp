@@ -20,9 +20,6 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 
 - **High Performance**: 30-60 FPS on 2.6M+ Gaussians at 1800x1600 resolution
 - **Real-time Interaction**: WASD + mouse camera control with immediate feedback
-- **Advanced Rendering**: View-dependent Spherical Harmonics (degrees 0–3)
-- **Smart Memory Management**: Persistent buffer mappings and dynamic resizing
-- **Flexible Architecture**: Compile-time shared memory optimization options
 
 ### Keyframe Animation System
 
