@@ -495,19 +495,19 @@ VulkanContext::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) {
   // size of the window.
   if (capabilities.currentExtent.width !=
       std::numeric_limits<uint32_t>::max()) {
-#ifdef __APPLE__
-    return VkExtent2D({capabilities.currentExtent.width / 2,
-                       capabilities.currentExtent.height / 2});
-#endif
+    // #ifdef __APPLE__
+    //     return VkExtent2D({capabilities.currentExtent.width / 2,
+    //                        capabilities.currentExtent.height / 2});
+    // #endif
     return capabilities.currentExtent;
   } else {
     int width, height;
     glfwGetFramebufferSize(_vcxWindow, &width, &height);
 
-#ifdef __APPLE__
-    width /= 2;
-    height /= 2;
-#endif
+    // #ifdef __APPLE__
+    //     width /= 2;
+    //     height /= 2;
+    // #endif
 
     VkExtent2D newExtent = {};
     newExtent.width = static_cast<uint32_t>(width);

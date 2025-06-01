@@ -70,6 +70,7 @@ private:
   std::vector<VkFence> _preprocessFences;
   std::vector<VkFence> _renderFences;
   std::vector<VkSemaphore> _semaphores;
+  std::vector<VkSemaphore> _renderSemaphores;
 
   std::map<PipelineType, VkDescriptorSetLayout> _descriptorSetLayouts;
   VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;

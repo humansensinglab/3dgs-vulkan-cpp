@@ -7,7 +7,7 @@
 #include <iostream>
 
 #ifndef DEBUG
-const bool enableValidationLayers = false;
+const bool enableValidationLayers = true;
 #else
 const bool enableValidationLayers = true;
 #endif

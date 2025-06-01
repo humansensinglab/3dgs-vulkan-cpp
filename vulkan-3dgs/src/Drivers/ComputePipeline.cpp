@@ -161,6 +161,7 @@ void ComputePipeline::CreateCommandBuffers() {
 void ComputePipeline::CreateSynchronization() {
 
   _semaphores.resize(frames_in_flight);       // When swapchain image is ready
+  _renderSemaphores.resize(frames_in_flight); // When swapchain image is ready
   _preprocessFences.resize(frames_in_flight); // When compute work is done
   _renderFences.resize(frames_in_flight);     // When compute work is done
 
@@ -175,6 +176,8 @@ void ComputePipeline::CreateSynchronization() {
 
     if (vkCreateSemaphore(_vkContext.GetLogicalDevice(), &semaphoreInfo,
                           nullptr, &_semaphores[i]) != VK_SUCCESS ||
+        vkCreateSemaphore(_vkContext.GetLogicalDevice(), &semaphoreInfo,
+                          nullptr, &_renderSemaphores[i]) != VK_SUCCESS ||
         vkCreateFence(_vkContext.GetLogicalDevice(), &fenceInfo, nullptr,
                       &_renderFences[i]) != VK_SUCCESS ||
         vkCreateFence(_vkContext.GetLogicalDevice(), &fenceInfo, nullptr,
@@ -756,8 +759,9 @@ void ComputePipeline::RenderFrame() {
 
   VkPresentInfoKHR presentInfo = {};
   presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-  presentInfo.waitSemaphoreCount = 0;
-  presentInfo.pWaitSemaphores = nullptr;
+  VkSemaphore waitSemaphores[] = {_renderSemaphores[_currentFrame]};
+  presentInfo.waitSemaphoreCount = 1;
+  presentInfo.pWaitSemaphores = waitSemaphores;
   presentInfo.swapchainCount = 1;
   VkSwapchainKHR swapchains[] = {_vkContext.GetSwapchain()};
   presentInfo.pSwapchains = swapchains;
@@ -878,11 +882,15 @@ void ComputePipeline::submitCommandBuffer(uint32_t imageIndex, bool waitSem) {
 
   VkSemaphore waitSemaphores[] = {_semaphores[_currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT};
-
+  VkSemaphore signalSemaphores[] = {_renderSemaphores[_currentFrame]};
   if (waitSem) {
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
+  } else {
+
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = signalSemaphores;
   }
   VkFence fence = (waitSem) ? _preprocessFences[_currentFrame]
                             : _renderFences[_currentFrame];
