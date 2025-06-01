@@ -317,7 +317,7 @@ void computeCov3D(int idx, float scaleModifier, out float cov3D_out[6]) {
 
 void main() {
    uint idx = gl_GlobalInvocationID.x;
-    
+   
    
     
      if (idx >= pc.gaussianCount) return;

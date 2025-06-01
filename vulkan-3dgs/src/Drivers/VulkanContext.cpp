@@ -499,6 +499,7 @@ VulkanContext::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities) {
     //     return VkExtent2D({capabilities.currentExtent.width / 2,
     //                        capabilities.currentExtent.height / 2});
     // #endif
+      std::cout << capabilities.currentExtent.width << "   fr  " << capabilities.currentExtent.height <<std::endl;
     return capabilities.currentExtent;
   } else {
     int width, height;
