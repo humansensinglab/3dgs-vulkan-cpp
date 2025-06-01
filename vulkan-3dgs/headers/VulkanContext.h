@@ -6,7 +6,7 @@
 #include "utils.h"
 #include <iostream>
 
-#ifdef DEBUG
+#ifndef DEBUG
 const bool enableValidationLayers = false;
 #else
 const bool enableValidationLayers = true;

@@ -71,32 +71,31 @@ void VulkanContext::CreateInstance() {
   if (enableValidationLayers) {
     instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
   }
+
+#ifdef __APPLE__
+  instanceExtensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+  instanceExtensions.push_back("VK_KHR_get_physical_device_properties2");
+#endif
+
   if (!CheckInstanceExtensionSupport(&instanceExtensions))
     throw std::runtime_error("Vk instance does not support required Extension");
 
   createInfo.enabledExtensionCount =
-      extensionCount + static_cast<int>(enableValidationLayers);
+      static_cast<uint32_t>(instanceExtensions.size());
   createInfo.ppEnabledExtensionNames = instanceExtensions.data();
+
+#ifdef __APPLE__
+  createInfo.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+#endif
+
   VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-  VkValidationFeaturesEXT validationFeatures{};
   if (enableValidationLayers) {
     createInfo.enabledLayerCount =
         static_cast<uint32_t>(validationLayers.size());
     createInfo.ppEnabledLayerNames = validationLayers.data();
 
     PopulateDebugMessengerCreateInfo(debugCreateInfo);
-
-    // ADD THIS BLOCK FOR DEBUG PRINTF
-    validationFeatures.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
-    VkValidationFeatureEnableEXT enables[] = {
-        VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT};
-    validationFeatures.enabledValidationFeatureCount = 1;
-    validationFeatures.pEnabledValidationFeatures = enables;
-
-    // Chain the structs
-    validationFeatures.pNext = &debugCreateInfo;
-    createInfo.pNext =
-        &validationFeatures; // Point to validation features instead
+    createInfo.pNext = &debugCreateInfo;
   } else {
     createInfo.enabledLayerCount = 0;
     createInfo.ppEnabledLayerNames = nullptr;
