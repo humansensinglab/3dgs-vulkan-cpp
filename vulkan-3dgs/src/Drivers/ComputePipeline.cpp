@@ -159,11 +159,11 @@ void ComputePipeline::CreateCommandBuffers() {
 }
 
 void ComputePipeline::CreateSynchronization() {
-
-  _semaphores.resize(frames_in_flight);       // When swapchain image is ready
-  _renderSemaphores.resize(frames_in_flight); // When swapchain image is ready
-  _preprocessFences.resize(frames_in_flight); // When compute work is done
-  _renderFences.resize(frames_in_flight);     // When compute work is done
+  size_t images = _vkContext.GetSwapchainImages().size();
+  _semaphores.resize(frames_in_flight); // gpu-gpu
+  _renderSemaphores.resize(images);
+  _preprocessFences.resize(frames_in_flight); // cpu-gpu
+  _renderFences.resize(frames_in_flight);
 
   VkSemaphoreCreateInfo semaphoreInfo = {};
   semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -173,16 +173,19 @@ void ComputePipeline::CreateSynchronization() {
   fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
   for (size_t i = 0; i < frames_in_flight; i++) {
-
     if (vkCreateSemaphore(_vkContext.GetLogicalDevice(), &semaphoreInfo,
                           nullptr, &_semaphores[i]) != VK_SUCCESS ||
-        vkCreateSemaphore(_vkContext.GetLogicalDevice(), &semaphoreInfo,
-                          nullptr, &_renderSemaphores[i]) != VK_SUCCESS ||
         vkCreateFence(_vkContext.GetLogicalDevice(), &fenceInfo, nullptr,
-                      &_renderFences[i]) != VK_SUCCESS ||
+                      &_preprocessFences[i]) != VK_SUCCESS ||
         vkCreateFence(_vkContext.GetLogicalDevice(), &fenceInfo, nullptr,
-                      &_preprocessFences[i]) != VK_SUCCESS) {
-      throw std::runtime_error("Failed to create synchronization objects!");
+                      &_renderFences[i]) != VK_SUCCESS) {
+      throw std::runtime_error("Failed to create per-frame sync objects!");
+    }
+  }
+  for (size_t i = 0; i < images; i++) {
+    if (vkCreateSemaphore(_vkContext.GetLogicalDevice(), &semaphoreInfo,
+                          nullptr, &_renderSemaphores[i]) != VK_SUCCESS) {
+      throw std::runtime_error("Failed to create per-image render semaphores!");
     }
   }
   std::cout << " Created Sempahores and Fences " << std::endl;
@@ -759,7 +762,7 @@ void ComputePipeline::RenderFrame() {
 
   VkPresentInfoKHR presentInfo = {};
   presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-  VkSemaphore waitSemaphores[] = {_renderSemaphores[_currentFrame]};
+  VkSemaphore waitSemaphores[] = {_renderSemaphores[imageIndex]};
   presentInfo.waitSemaphoreCount = 1;
   presentInfo.pWaitSemaphores = waitSemaphores;
   presentInfo.swapchainCount = 1;
@@ -882,7 +885,7 @@ void ComputePipeline::submitCommandBuffer(uint32_t imageIndex, bool waitSem) {
 
   VkSemaphore waitSemaphores[] = {_semaphores[_currentFrame]};
   VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT};
-  VkSemaphore signalSemaphores[] = {_renderSemaphores[_currentFrame]};
+  VkSemaphore signalSemaphores[] = {_renderSemaphores[imageIndex]};
   if (waitSem) {
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = waitSemaphores;
