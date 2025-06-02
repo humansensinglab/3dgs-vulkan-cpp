@@ -153,7 +153,8 @@ void VulkanContext::CreateLogicalDevice() {
   VkPhysicalDeviceFeatures2 features2{};
   features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
   features2.pNext = &vulkan12Features;
-
+  features2.features.shaderInt64 = VK_TRUE;
+  features2.features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
   VkDeviceCreateInfo deviceInfo = {};
   deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   deviceInfo.pNext = &features2; // Point to the features2
@@ -395,6 +396,7 @@ bool VulkanContext::CheckDeviceSuitable(VkPhysicalDevice device) {
   vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
   bool shaderint64 = deviceFeatures.shaderInt64;
+  bool shaderNoFormat = deviceFeatures.shaderStorageImageWriteWithoutFormat;
   bool isDiscreteGPU =
       deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU;
   // queue families
@@ -472,10 +474,12 @@ VkSurfaceFormatKHR VulkanContext::ChooseBestFormatSurface(
       return {VK_FORMAT_R8G8B8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
     }
     for (const auto &format : formats) {
-      if ((format.format == VK_FORMAT_R8G8B8A8_UNORM
-           /* ||  format.format == VK_FORMAT_B8G8R8A8_UNORM*/) &&
-          format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+      if ((format.format == VK_FORMAT_R8G8B8A8_UNORM ||
+           format.format == VK_FORMAT_B8G8R8A8_UNORM) &&
+          format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+        std::cout << "Chosen swapchain format: " << format.format << std::endl;
         return format;
+      }
     }
     return formats[0];
   }

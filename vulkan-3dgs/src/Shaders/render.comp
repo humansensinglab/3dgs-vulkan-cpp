@@ -24,7 +24,7 @@ layout (std430, set = 0, binding = 4) readonly buffer pointsXY {
     vec2 pos2d[];
 };
 
-layout(set = 0, binding = 5, rgba8) uniform writeonly image2D outputImage;
+layout(set = 0, binding = 5) uniform writeonly image2D outputImage;
 
 layout( push_constant ) uniform Constants {
     uint width;
