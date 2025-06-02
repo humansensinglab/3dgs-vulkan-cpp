@@ -8,6 +8,7 @@ Cross-platform 3D Gaussian Splatting implementation with KeyFrame Animation syst
 ---
 
 **Example PLY**: https://huggingface.co/datasets/dylanebert/3dgs/tree/main/bonsai/point_cloud/iteration_30000
+SH_DEGREE=3
 
 Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This project uses **standard Vulkan 1.3**, ensuring:
 
