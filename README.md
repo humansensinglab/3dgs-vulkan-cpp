@@ -1,48 +1,48 @@
 # Vulkan 3D Gaussian Splatting
 
-Cross-platform 3D Gaussian Splatting implementation using **pure Vulkan compute shaders** — no CUDA dependencies.
+Cross-platform 3D Gaussian Splatting implementation with KeyFrame Animation system using **pure Vulkan compute shaders** — no CUDA dependencies.
 
 ![Current State](media/gaussian_record.gif)
 *Real-time rendering with keyframe animation system and configurable parameters on NVIDIA RTX 3070*
 
 ---
 
-Example ply : https://huggingface.co/datasets/dylanebert/3dgs/tree/main/bonsai/point_cloud/iteration_30000
+**Example PLY**: https://huggingface.co/datasets/dylanebert/3dgs/tree/main/bonsai/point_cloud/iteration_30000
 
 Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This project uses **standard Vulkan 1.3**, ensuring:
 
-- ✅ **Cross-platform**: Runs on Windows, Linux, and macOS
+- ✅ **Cross-platform**: Runs on Windows, macOS, and Linux
 - ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon
 
 ---
 
 ## Features
 
-- **High Performance**: 30-60 FPS on 2.6M+ Gaussians at 1800x1600 resolution
+### Performance
+- **High Performance**: 25-80 FPS on 2M+ Gaussians at 1800x1600 resolution
 - **Real-time Interaction**: WASD + mouse camera control with immediate feedback
 
 ### Keyframe Animation System
 
 **Camera Animation**:
--  **Keyframe Recording**: Capture camera positions, rotations, and rendering parameters at specific time points
+- **Keyframe Recording**: Capture camera positions, rotations, and rendering parameters at specific time points
 - **Smooth Interpolation**: Automatic interpolation between keyframes for cinematic camera movements
 - **Playback Control**: Play, stop, and loop through your animation sequences
 - **Parameter Animation**: Animate FOV, near/far planes, wireframe mode, and more
 
-###  Configurable Parameters
+### Configurable Parameters
 
 **Real-time Controls via ImGui**:
 - **Camera Settings**:
   - FOV adjustment (30° - 120°)
   - Mouse sensitivity (0.01 - 0.4)
   - Movement speed (1.0 - 10.0)
-  - Free-fly or look-at modes
   
 - **Rendering Options**:
   - Distance culling with adjustable near/far planes
   - Wireframe mode with Gaussian scale control
   - Real-time performance metrics (FPS, GPU memory)
-  - Tile size configuration
+  - Tile size configuration (currently fixed at 16)
   
 - **Animation Keyframes Include**:
   - Camera position (X, Y, Z)
@@ -53,13 +53,15 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
   - Timing control
 
 ---
+
 ## Building from Source
 
 ### Prerequisites
-- Vulkan SDK 1.3+ installed
-- Visual Studio 2022 (Windows) or GCC/Clang (Linux/macOS)
-- CMake 3.10+
-- Compatible GPU with Vulkan support
+- **Vulkan SDK 1.3+** - Download from https://vulkan.lunarg.com/
+- **macOS**: Install GLFW via Homebrew: `brew install glfw`
+- **Compiler**: Visual Studio 2022 (Windows) or GCC/Clang (Linux/macOS)
+- **CMake 3.16+**
+- **Compatible GPU** with Vulkan support
 
 ### Step 1: Clone the Repository
 ```bash
@@ -78,24 +80,25 @@ cd build
 cmake ..
 ```
 
-For Visual Studio users, you can specify the generator:
+For Visual Studio users, specify the generator:
 ```bash
 cmake -G "Visual Studio 17 2022" ..
 ```
 
 ### Step 4: Build the Project
 ```bash
-# For Release build (recommended)
+# Release build (recommended)
 cmake --build . --config Release
 
-# For Debug build
+# Debug build
 cmake --build . --config Debug
 ```
 
-Alternatively, if you generated Visual Studio files:
+**Alternative for Visual Studio**:
 - Open `build/vulkan-3dgs.sln`
 - Set `vulkan-3dgs` as the startup project
 - Press F5 to build and run
+- **Note**: The program expects PLY path and shDegrees as arguments - configure these in project properties
 
 ### Step 5: Locate the Executable
 The executable will be created in:
@@ -108,8 +111,15 @@ The executable will be created in:
 cd vulkan-3dgs/Release
 
 # Run with a PLY file
-./vulkan-3dgs.exe path/to/your/pointcloud.ply
+./vulkan-3dgs.exe path/to/your/pointcloud.ply shDegrees
 ```
+
+### Platform-Specific Issues
+
+#### macOS
+- **Metal Argument Buffers**: For some Vulkan/MoltenVK versions, set `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0` before running
+- **Vulkan SDK 1.3.290** is tested and does not require this workaround
+- **M3/M4 Color Format Issue**: Some M3/M4 Macs experience flickering and black screens due to color format compatibility issues. This is currently being addressed - if encountered, please provide your model information
 
 ### Directory Structure After Build
 ```
@@ -124,30 +134,11 @@ build/
         └── (place your .ply file here or specify full path)
 ```
 
-## ✅ Core Implementation Complete
+![macOS Screenshot](media/g_macos.png)
+*Vulkan 3DGS running on MacBook Air M2*
+---
 
-**Full 3D Gaussian Splatting Pipeline**:
-- **PLY Loading** — Multi-million Gaussian support: position, scale, rotation, opacity, SH coefficients
-- **Vulkan Foundation** — Complete device/queue setup with cross-platform compatibility
-- **Buffer Architecture** — Persistent mapped staging & storage buffers with dynamic resizing
-- **Compute Infrastructure** — Descriptor management, pipeline creation, command recording
-- **Camera System** — Smooth first-person controls with real-time matrix updates + keyframe animation
-- **GPU Preprocessing** — Frustum culling, 3D→2D covariance, NDC projection
-- **Spherical Harmonics** — Full SH evaluation (degrees 0–3) for view-dependent lighting
-- **Screen Projection** — Accurate pixel transforms with radius estimation
-- **Prefix Sum** — Efficient tile count to offset mapping
-- **Depth Sorting** — GPU radix sort for proper depth ordering
-- **Tile-Based Rasterization** — Complete per-tile Gaussian binning and rendering
-- **Alpha Blending** — Order-independent transparency with correct compositing
-- **ImGui Integration** — Professional UI for real-time parameter control and animation
-
-**The core 3DGS algorithm is fully functional and production-ready.**
-
-
-
-
-
-##  Usage & Controls
+## Usage & Controls
 
 ### Camera Controls
 - **WASD** - Move forward/backward/left/right
@@ -174,11 +165,14 @@ build/
 ## ⏳ Roadmap
 
 ### Platform Expansion  
+- **Adjustable World Space** — Camera movements can vary depending on world space. Since some point clouds are tilted, working on providing a customizable world space editor
+- **Resizable Windows** — Dynamic window resizing support (coming soon)
+- **Enhanced Upsampling** — Bilinear upsampling for Retina displays on macOS
 - **Video Export** — Direct MP4/AVI export from animation sequences
 - **Mobile Support** — Native Android app + iOS via MoltenVK
 
 ### User Experience
-- **Advanced Animation** — Bezier curves, easing functions, path preview
+- **Advanced Animation** — Bézier curves, easing functions, path preview
 - **Drag & Drop** — Direct PLY file loading from desktop
 - **Multi-PLY Support** — Load and switch between multiple models
 
@@ -198,28 +192,14 @@ build/
 
 ---
 
-## Performance
+## Requirements
 
-**Current Metrics** (2.6M Gaussians at 1800x1600):
-- **Framerate**: 30-60 FPS with full 3DGS pipeline active
-- **Memory**: Efficient GPU buffer management with minimal CPU overhead
-- **Scalability**: Handles multi-million point clouds with dynamic LOD
-
-**Optimization Modes**:
-- `SHARED_MEM_RENDER`: Faster rendering with workgroup shared memory (compile-time option)
-- Standard mode: Stable rendering without shared memory artifacts
+- **Vulkan 1.3** compatible GPU and drivers
+- **C++17** compiler
+- **CMake 3.16+**
+- **Vulkan SDK**
 
 ---
-
-
-**Requirements**:
-- Vulkan 1.3 compatible GPU and drivers
-- C++17 compiler
-- CMake 3.16+
-- Vulkan SDK
-
----
-
 
 ## 📄 License
 
