@@ -65,7 +65,7 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 
 ### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/AlejandroAmat/3dgs-vulkan-cpp.git
+git clone --recursive https://github.com/AlejandroAmat/3dgs-vulkan-cpp.git
 cd 3dgs-vulkan-cpp
 ```
 
