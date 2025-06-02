@@ -16,4 +16,5 @@ glslangValidator -V --target-env spirv1.5 ../Shaders/render.comp -o ../Shaders/r
 glslangValidator -V --target-env spirv1.5 -DAPPLE ../Shaders/radix_sort/radixsort.comp -o ../Shaders/sort.spv
 glslangValidator -V --target-env spirv1.5 -DAPPLE ../Shaders/radix_sort/histogram.comp -o ../Shaders/histogram.spv
 
+glslangValidator -V --target-env spirv1.5 -DAPPLE ../Shaders/render.comp -o ../Shaders/render.spv
 echo "macOS shader compilation complete!"
