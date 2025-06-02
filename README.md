@@ -15,6 +15,7 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 - ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon
 - ✅ **Python Integration**: Planning to provide bindings to run from Python (support will be added by 6th June 2025)
 
+Note: For AMD change the SUBGROUP_SIZE to 64 in the [radix_sort/radixsort.comp shader](vulkan-3dgs/src/Shaders/radix_sort/radixsort.comp)
 ---
 
 ## Features
@@ -187,7 +188,7 @@ build/
 - **UI Framework**: [Dear ImGui](https://github.com/ocornut/imgui) for controls
 - **Build System**: CMake (cross-platform)
 - **Windowing**: [GLFW](https://github.com/glfw/glfw) for cross-platform support
-- **Radix Sort**: [VkRadixSort](https://github.com/MircoWerner/VkRadixSort) by MircoWerner for GPU depth sorting
+- **Radix Sort**: [VkRadixSort](https://github.com/MircoWerner/VkRadixSort) by MircoWerner for GPU depth sorting with modifications done by [3ds.cpp](https://github.com/shg8/3DGS.cpp)
 - **Platforms**: Windows, Linux, macOS (mobile planned)
 
 ---
