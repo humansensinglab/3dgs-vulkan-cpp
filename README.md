@@ -11,7 +11,7 @@ Cross-platform 3D Gaussian Splatting implementation with KeyFrame Animation syst
 
 Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This project uses **standard Vulkan 1.3**, ensuring:
 
-- ✅ **Cross-platform**: Runs on Windows, macOS, and Linux
+- ✅ **Cross-platform**: Runs on Windows, macOS, and Linux (Currently working to give support)
 - ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon
 
 ---
@@ -143,8 +143,7 @@ build/
 ### Camera Controls
 - **WASD** - Move forward/backward/left/right
 - **Q/E** - Move up/down
-- **Right Mouse + Drag** - Look around
-- **Mouse Scroll** - Adjust FOV
+- **Right Mouse + Drag / Two-finger drag (trackpad)** - Look around 
 
 ### Animation Workflow
 1. **Enter Sequence Mode** - Click "Enter Sequence" in the Camera Sequence window
