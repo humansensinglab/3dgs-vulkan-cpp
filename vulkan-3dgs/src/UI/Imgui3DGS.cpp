@@ -249,8 +249,12 @@ void ImguiUI::CreateUI() {
   {
     ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Display Info");
     ImGui::Separator();
-    ImGui::Text("Resolution: %d x %d", g_renderSettings.width,
-                g_renderSettings.height);
+    int resize = 1;
+#ifdef __APPLE__
+    resize = 2;
+#endif
+    ImGui::Text("Resolution: %d x %d", g_renderSettings.width*resize,
+                g_renderSettings.height*resize);
     ImGui::Text("Number of Gaussians: %d", g_renderSettings.numGaussians);
     ImGui::Text("Number of Rendered Splats: %d", g_renderSettings.numRendered);
 
