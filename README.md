@@ -143,8 +143,7 @@ build/
 ### Camera Controls
 - **WASD** - Move forward/backward/left/right
 - **Q/E** - Move up/down
-- **Right Mouse + Drag** - Look around
-- **Mouse Scroll** - Adjust FOV
+- **Right Mouse + Drag / Two-finger drag (trackpad)** - Look around 
 
 ### Animation Workflow
 1. **Enter Sequence Mode** - Click "Enter Sequence" in the Camera Sequence window
