@@ -13,6 +13,7 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 
 - ✅ **Cross-platform**: Runs on Windows, macOS, and Linux (Currently working to give support)
 - ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon
+- ✅ **Python Integration**: Planning on providing a Python binding for visualization from Python (currently developing) 
 
 ---
 
