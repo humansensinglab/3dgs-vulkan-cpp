@@ -15,7 +15,7 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 - ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon
 - ✅ **Python Integration**: Planning to provide bindings to run from Python (support will be added by 6th June 2025)
 
-Note: For AMD change the SUBGROUP_SIZE to 64 in the [radix_sort/radixsort.comp shader](vulkan-3dgs/src/Shaders/radix_sort/radixsort.comp)
+     Note: For AMD change the SUBGROUP_SIZE to 64 in the [radix_sort/radixsort.comp shader](vulkan-3dgs/src/Shaders/radix_sort/radixsort.comp)
 ---
 
 ## Features
