@@ -55,7 +55,7 @@ layout(binding = 5) readonly buffer GaussianSH {
 layout(binding = 6) uniform CameraUniforms {
     mat4 viewMatrix;
     mat4 projMatrix;
-    vec3 camPos;
+    vec4 camPos;
     float focal_x;
     float focal_y; 
     float tan_fovx;
@@ -104,22 +104,15 @@ int getSHCoeffCount(int degree) {
     return 1;
 }
 
-vec3 transformPoint4x3(vec3 point, mat4 matrix) {
-    vec4 transformed = matrix * vec4(point, 1.0);
-    return transformed.xyz;
-}
 
-vec4 transformPoint4x4(vec3 point, mat4 matrix) {
-    return matrix * vec4(point, 1.0);
-}
 
 float ndc2Pix(float ndc, int size) {
     return ((ndc + 1.0) * size - 1.0) * 0.5;
 }
 
 bool inFrustum(int idx, out vec3 pView) {
-    vec3 pos = positions[idx].xyz;
-    pView = transformPoint4x3(pos, camera.viewMatrix);
+    vec4 pos = positions[idx];
+    pView =  mat3(camera.viewMatrix)*pos.xyz + camera.viewMatrix[3].xyz;
     
     // Near plane culling
     //if (pView.z <= 0.01) return false;
@@ -133,11 +126,12 @@ bool inFrustum(int idx, out vec3 pView) {
 
 vec3 computeColorFromSH(int idx) {
     vec3 pos = positions[idx].xyz;
-    vec3 dir = normalize(pos - camera.camPos);
+    vec3 dir = normalize(pos - camera.camPos.xyz);
+    //dir.z = -dir.z;
     
     // Get base index for this Gaussian's SH coefficients
     int shBase = idx * getSHCoeffCount(camera.shDegree);
-    
+   
     // SH degree 0 - sh[0]
     vec3 result = SH_C0 * vec3(
         sh_coefficients[shBase * 3 + 0],
@@ -237,8 +231,8 @@ vec3 computeColorFromSH(int idx) {
                     );
             }
         }
-    }
-    
+    }  
+  
     result += 0.5;
     
     return max(result, vec3(0.0));
@@ -246,7 +240,7 @@ vec3 computeColorFromSH(int idx) {
 
 vec3 computeCov2D(vec3 mean, float cov3D_data[6]) {
     // Transform to view space
-    vec3 t = transformPoint4x3(mean, camera.viewMatrix);
+    vec3 t = mean;
     
     // Clamp to frustum
     float limx = 1.3 * camera.tan_fovx;
@@ -258,13 +252,13 @@ vec3 computeCov2D(vec3 mean, float cov3D_data[6]) {
     
     // Jacobian matrix
     mat3 J = mat3(
-        camera.focal_x / t.z, 0.0, -(camera.focal_x * t.x) / (t.z * t.z),
+        camera.focal_x / t.z, 0.0,- (camera.focal_x * t.x) / (t.z * t.z),
         0.0, camera.focal_y / t.z, -(camera.focal_y * t.y) / (t.z * t.z),
         0.0, 0.0, 0.0
     );
     
     // View matrix (upper 3x3)
-    mat3 W = mat3(camera.viewMatrix);
+    mat3 W = transpose(mat3(camera.viewMatrix));
     mat3 T = W * J;
     
     mat3 Vrk = mat3(
@@ -273,7 +267,7 @@ vec3 computeCov2D(vec3 mean, float cov3D_data[6]) {
         cov3D_data[2], cov3D_data[4], cov3D_data[5]   // [xz, yz, zz]
     );
     
-    mat3 cov = transpose(T) * transpose(Vrk) * T;
+    mat3 cov = transpose(T) * Vrk * T;
     
     // Low-pass filter
     cov[0][0] += 0.3;
@@ -344,8 +338,8 @@ void main() {
         if (!inFrust) return;
     }
     // Transform to clip space
-    vec3 pOrig = positions[idx].xyz;
-    vec4 pHom = transformPoint4x4(pOrig, camera.projMatrix * camera.viewMatrix);
+    vec4 pOrig = positions[idx];
+    vec4 pHom =  camera.projMatrix * camera.viewMatrix*pOrig;
     float pW = 1.0 / (pHom.w + 0.0000001);
     vec3 pProj = pHom.xyz * pW;
     
@@ -354,7 +348,7 @@ void main() {
     computeCov3D(int(idx), 1.0, cov3D_data);
       
     // Compute 2D covariance  
-    vec3 cov2D = computeCov2D(pOrig, cov3D_data);
+    vec3 cov2D = computeCov2D(pView, cov3D_data);
     
     // Invert covariance (EWA algorithm)
     float det = cov2D.x * cov2D.z - cov2D.y * cov2D.y;

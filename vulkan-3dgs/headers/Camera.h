@@ -7,12 +7,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp> // Add this for quaternion functions
 #include <glm/gtx/quaternion.hpp>
+#include <iostream>
 enum class CameraMovement { FORWARD, BACKWARD, LEFT, RIGHT, UP, DOWN, SEQ };
 
 struct CameraUniforms {
   alignas(16) glm::mat4 viewMatrix;
   alignas(16) glm::mat4 projMatrix;
-  alignas(16) glm::vec3 camPos;
+  alignas(16) glm::vec4 camPos;
   alignas(4) float focal_x;
   alignas(4) float focal_y;
   alignas(4) float tan_fovx;

@@ -5,7 +5,7 @@
 
 Camera::Camera(int w, int h, float fov, float aspectRatio, float nearPlane,
                float farPlane)
-    : _pos(glm::vec3(0, 2, -2.5)), _front(glm::vec3(0.0f, 0.0f, -1.0f)),
+    : _pos(glm::vec3(0, 2, -2.5)), _front(glm::vec3(0.0f, 0.0f, 1.0f)),
       _worldUp(glm::vec3(0.0f, 1.0f, 0.0f)), _w(w),
       _h(h) // Start looking forward (negative Z)
       ,
@@ -22,13 +22,17 @@ Camera::Camera(int w, int h, float fov, float aspectRatio, float nearPlane,
 
 glm::mat4 Camera::GetViewMatrix() const {
 
-  return glm::lookAtLH(_pos, _pos - _front, _up);
+  glm::mat4 view = glm::lookAtLH(_pos, _pos - _front, _worldUp);
+
+  return view;
 }
 
 glm::mat4 Camera::GetProjectionMatrix() const {
-  return glm::perspective(glm::radians(g_renderSettings.fov), _aspectRatio,
-                          g_renderSettings.nearPlane,
-                          g_renderSettings.farPlane);
+  glm::mat4 proj =
+      glm::perspective(glm::radians(g_renderSettings.fov), _aspectRatio,
+                       g_renderSettings.nearPlane, g_renderSettings.farPlane);
+
+  return proj;
 }
 
 void Camera::ProcessMouseMovement(float deltaX, float deltaY,
@@ -41,8 +45,11 @@ void Camera::ProcessMouseMovement(float deltaX, float deltaY,
   }
   // Standard FPS camera - rotate around world axes
   _yaw += deltaX;
-  _pitch += deltaY;
-
+  _pitch -= deltaY;
+  if (_yaw >= 359)
+    _yaw = 0;
+  if (_yaw < -359)
+    _yaw = 0;
   // Constrain pitch to prevent camera flipping
   if (constrainPitch) {
     if (_pitch > 89.0f)
@@ -105,7 +112,7 @@ CameraUniforms Camera::getUniforms() {
   _uniforms.imageWidth = _w;
   _uniforms.imageHeight = _h;
 
-  _uniforms.camPos = g_renderSettings.pos;
+  _uniforms.camPos = glm::vec4(g_renderSettings.pos, 0.0f);
   if (g_renderSettings.playing) {
     _yaw = g_renderSettings.yaw;
     _pitch = g_renderSettings.pitch;

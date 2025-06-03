@@ -117,7 +117,7 @@ void main() {
     imageStore(outputImage, ivec2(2*curr_pixel.x, 2*curr_pixel.y), vec4(C, 1.0f - T));
 
     #else
-    imageStore(outputImage, ivec2(curr_pixel), vec4(C, 1.0f - T));
+    imageStore(outputImage, ivec2(curr_pixel), vec4(C.rgb, 1.0f - T));
     #endif
     
 
