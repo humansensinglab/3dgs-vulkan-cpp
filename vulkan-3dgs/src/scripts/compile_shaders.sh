@@ -10,7 +10,7 @@ glslangValidator -V --target-env spirv1.3 ../Shaders/prefixsum.comp -o ../Shader
 glslangValidator -V --target-env spirv1.5 ../Shaders/idkeys.comp -o ../Shaders/idkeys.spv
 glslangValidator -V --target-env spirv1.3 ../Shaders/tile_boundaries.comp -o ../Shaders/boundaries.spv
 glslangValidator -V --target-env spirv1.5 ../Shaders/render_shared_mem.comp -o ../Shaders/render_shared.spv
-
+glslangValidator -V --target-env spirv1.5 ../../Shaders/upsample.comp -o ../../Shaders/upsample.spv
 
 # Radix sort shaders (need APPLE define for MoltenVK compatibility)
 glslangValidator -V --target-env spirv1.5 -DAPPLE ../Shaders/radix_sort/radixsort.comp -o ../Shaders/sort.spv
