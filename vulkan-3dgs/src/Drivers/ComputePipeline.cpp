@@ -68,6 +68,7 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   UpdateAllDescriptorSets(PipelineType::RENDER);
 
 #ifdef __APPLE__
+  createRenderTarget();
   CreateDescriptorSetLayout(PipelineType::UPSAMPLING);
   CreateComputePipeline("Shaders/upsample.spv", PipelineType::UPSAMPLING, 3);
   SetupDescriptorSet(PipelineType::UPSAMPLING);
