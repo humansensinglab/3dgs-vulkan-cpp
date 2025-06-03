@@ -67,6 +67,13 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   SetupDescriptorSet(PipelineType::RENDER);
   UpdateAllDescriptorSets(PipelineType::RENDER);
 
+#ifdef __APPLE__
+  createRenderTarget();
+  CreateDescriptorSetLayout(PipelineType::UPSAMPLING);
+  CreateComputePipeline("Shaders/upsample.spv", PipelineType::UPSAMPLING, 3);
+  SetupDescriptorSet(PipelineType::UPSAMPLING);
+  UpdateAllDescriptorSets(PipelineType::UPSAMPLING);
+#endif
   CreateSynchronization();
 
   // RecordAllCommandBuffers();
@@ -461,6 +468,15 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
 
   if (numRendered) {
 
+#ifdef __APPLE__
+    TransitionImage(
+        commandBuffer,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // From previous frame
+        VK_IMAGE_LAYOUT_GENERAL,                  // For compute write
+        _renderTarget.image, VK_ACCESS_SHADER_READ_BIT,
+        VK_ACCESS_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+#endif
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
                       _computePipelines[PipelineType::ASSIGN_TILE_IDS]);
 
@@ -648,6 +664,36 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
     vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1, &barrier_x,
                          0, nullptr, 0, nullptr);
+
+/////////////////////////////////////////////////////////////////////////
+// Apple upsampling
+#ifdef __APPLE__
+    TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_GENERAL,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    _renderTarget.image, VK_ACCESS_SHADER_WRITE_BIT,
+                    VK_ACCESS_SHADER_READ_BIT,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+                      _computePipelines[PipelineType::UPSAMPLING]);
+
+    vkCmdBindDescriptorSets(
+        commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
+        _pipelineLayouts[PipelineType::UPSAMPLING], 0, 1,
+        &_descriptorSets[PipelineType::UPSAMPLING][imageIndex], 0, nullptr);
+    vkCmdDispatch(commandBuffer, (extent.width + 15) / 16,
+                  (extent.height + 15) / 16, 1);
+
+    VkMemoryBarrier barrier_upsample = {};
+    barrier_upsample.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+    barrier_upsample.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+    barrier_upsample.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1,
+                         &barrier_upsample, 0, nullptr, 0, nullptr);
+#endif
   } else {
 
     clearSwapchain(commandBuffer, imageIndex);
@@ -818,10 +864,20 @@ void ComputePipeline::UpdateAllDescriptorSets(const PipelineType pType) {
 
   for (const auto &descriptor : SHADER_LAYOUTS[pType]) {
     for (uint32_t i = 0; i < swapchainImages.size(); i++) {
-      if (descriptor.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE)
-        BindImageToDescriptor(pType, i, swapchainImages[i].imageView,
-                              descriptor.binding);
-      else {
+      if (descriptor.type == VK_DESCRIPTOR_TYPE_STORAGE_IMAGE) {
+        VkImageView imageView = swapchainImages[i].imageView;
+
+#ifdef __APPLE__
+        if (pType == PipelineType::RENDER)
+          imageView = _renderTarget.view;
+#endif
+
+        BindImageToDescriptor(pType, i, imageView, descriptor.binding);
+
+      } else if (descriptor.type == VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) {
+        BindSamplerToDescriptor(pType, i, _renderTarget.view,
+                                _renderTarget.sampler, descriptor.binding);
+      } else {
         BindBufferToDescriptor(pType, descriptor.binding, i,
                                GetBufferByName(descriptor.name),
                                descriptor.type);
@@ -1014,6 +1070,149 @@ void ComputePipeline::clearSwapchain(VkCommandBuffer commandBuffer,
                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 }
 
+void ComputePipeline::createRenderTarget() {
+
+  // Get swapchain extent
+  VkExtent2D extent = _vkContext.GetSwapchainExtent();
+  uint32_t width = extent.width / _windowResize;
+  uint32_t height = extent.height / _windowResize;
+
+  // Create image
+  VkImageCreateInfo imageInfo{};
+  imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+  imageInfo.imageType = VK_IMAGE_TYPE_2D;
+  imageInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+  imageInfo.extent = {width, height, 1};
+  imageInfo.mipLevels = 1;
+  imageInfo.arrayLayers = 1;
+  imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+  imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+  imageInfo.usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+  imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+  imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+  vkCreateImage(_vkContext.GetLogicalDevice(), &imageInfo, nullptr,
+                &_renderTarget.image);
+
+  // Allocate memory
+  VkMemoryRequirements memRequirements;
+  vkGetImageMemoryRequirements(_vkContext.GetLogicalDevice(),
+                               _renderTarget.image, &memRequirements);
+
+  VkMemoryAllocateInfo allocInfo{};
+  allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  allocInfo.allocationSize = memRequirements.size;
+  allocInfo.memoryTypeIndex = findMemoryType(
+      memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+  vkAllocateMemory(_vkContext.GetLogicalDevice(), &allocInfo, nullptr,
+                   &_renderTarget.memory);
+  vkBindImageMemory(_vkContext.GetLogicalDevice(), _renderTarget.image,
+                    _renderTarget.memory, 0);
+
+  VkImageViewCreateInfo viewInfo{};
+  viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  viewInfo.image = _renderTarget.image;
+  viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  viewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+  viewInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+  viewInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+  viewInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+  viewInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+  viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  viewInfo.subresourceRange.baseMipLevel = 0;
+  viewInfo.subresourceRange.levelCount = 1;
+  viewInfo.subresourceRange.baseArrayLayer = 0;
+  viewInfo.subresourceRange.layerCount = 1;
+
+  vkCreateImageView(_vkContext.GetLogicalDevice(), &viewInfo, nullptr,
+                    &_renderTarget.view);
+
+  // Create sampler for reading the image as texture
+  VkSamplerCreateInfo samplerInfo{};
+  samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  samplerInfo.magFilter = VK_FILTER_LINEAR;
+  samplerInfo.minFilter = VK_FILTER_LINEAR;
+  samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+  samplerInfo.anisotropyEnable = VK_FALSE;
+  samplerInfo.maxAnisotropy = 1.0f;
+  samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+  samplerInfo.unnormalizedCoordinates = VK_FALSE;
+  samplerInfo.compareEnable = VK_FALSE;
+  samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+  samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+  samplerInfo.mipLodBias = 0.0f;
+  samplerInfo.minLod = 0.0f;
+  samplerInfo.maxLod = 0.0f;
+
+  vkCreateSampler(_vkContext.GetLogicalDevice(), &samplerInfo, nullptr,
+                  &_renderTarget.sampler);
+
+  transitionRenderTargetLayout(VK_IMAGE_LAYOUT_UNDEFINED,
+                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
+void ComputePipeline::transitionRenderTargetLayout(VkImageLayout oldLayout,
+                                                   VkImageLayout newLayout) {
+  // Allocate a new command buffer
+  VkCommandBufferAllocateInfo allocInfo{};
+  allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  allocInfo.commandPool = _vkContext.GetCommandPool();
+  allocInfo.commandBufferCount = 1;
+
+  VkCommandBuffer commandBuffer;
+  vkAllocateCommandBuffers(_vkContext.GetLogicalDevice(), &allocInfo,
+                           &commandBuffer);
+
+  // Begin recording
+  VkCommandBufferBeginInfo beginInfo{};
+  beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+  vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+  // Use your TransitionImage function
+  TransitionImage(commandBuffer, oldLayout, newLayout, _renderTarget.image,
+                  VK_ACCESS_NONE,                        // src access mask
+                  VK_ACCESS_SHADER_WRITE_BIT,            // dst access mask
+                  VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,     // src stage
+                  VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT); // dst stage
+
+  // End recording
+  vkEndCommandBuffer(commandBuffer);
+
+  // Submit and wait
+  VkSubmitInfo submitInfo{};
+  submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submitInfo.commandBufferCount = 1;
+  submitInfo.pCommandBuffers = &commandBuffer;
+
+  vkQueueSubmit(_vkContext.GetGraphicsQueue(), 1, &submitInfo, VK_NULL_HANDLE);
+  vkQueueWaitIdle(_vkContext.GetGraphicsQueue());
+
+  // Free the command buffer
+  vkFreeCommandBuffers(_vkContext.GetLogicalDevice(),
+                       _vkContext.GetCommandPool(), 1, &commandBuffer);
+}
+
+uint32_t ComputePipeline::findMemoryType(uint32_t typeFilter,
+                                         VkMemoryPropertyFlags properties) {
+  VkPhysicalDeviceMemoryProperties memProperties;
+  vkGetPhysicalDeviceMemoryProperties(_vkContext.GetPhysicalDevice(),
+                                      &memProperties);
+
+  for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+    if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags &
+                                    properties) == properties) {
+      return i;
+    }
+  }
+
+  throw std::runtime_error("Failed to find suitable memory type!");
+}
 void ComputePipeline::RecordAllCommandBuffers() {}
 
 void ComputePipeline::BindImageToDescriptor(const PipelineType pType,
@@ -1058,6 +1257,28 @@ void ComputePipeline::BindBufferToDescriptor(const PipelineType pType,
   descriptorWrite.descriptorType = descriptorType;
   descriptorWrite.descriptorCount = 1;
   descriptorWrite.pBufferInfo = &bufferInfo;
+
+  vkUpdateDescriptorSets(_vkContext.GetLogicalDevice(), 1, &descriptorWrite, 0,
+                         nullptr);
+}
+
+void ComputePipeline::BindSamplerToDescriptor(const PipelineType pType,
+                                              uint32_t i, VkImageView view,
+                                              VkSampler sampler,
+                                              uint32_t binding) {
+  VkDescriptorImageInfo imageInfo = {};
+  imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  imageInfo.imageView = view;
+  imageInfo.sampler = sampler;
+
+  VkWriteDescriptorSet descriptorWrite = {};
+  descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  descriptorWrite.dstSet = _descriptorSets[pType][i];
+  descriptorWrite.dstBinding = binding;
+  descriptorWrite.dstArrayElement = 0;
+  descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  descriptorWrite.descriptorCount = 1;
+  descriptorWrite.pImageInfo = &imageInfo;
 
   vkUpdateDescriptorSets(_vkContext.GetLogicalDevice(), 1, &descriptorWrite, 0,
                          nullptr);

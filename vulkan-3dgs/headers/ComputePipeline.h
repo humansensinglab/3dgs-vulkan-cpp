@@ -41,7 +41,8 @@ enum class PipelineType {
   RADIX_SCATTER_0,
   RADIX_SCATTER_1,
   TILE_BOUNDARIES,
-  RENDER
+  RENDER,
+  UPSAMPLING
 };
 
 class ComputePipeline {
@@ -114,6 +115,15 @@ private:
                              uint32_t imageIndex);
   void clearSwapchain(VkCommandBuffer commandBuffer, uint32_t imageIndex,
                       bool toGeneral = false);
+  void BindSamplerToDescriptor(const PipelineType pType, uint32_t i,
+                               VkImageView view, VkSampler sampler,
+                               uint32_t binding);
+
+  void createRenderTarget();
+  uint32_t findMemoryType(uint32_t typeFilter,
+                          VkMemoryPropertyFlags properties);
+  void transitionRenderTargetLayout(VkImageLayout oldLayout,
+                                    VkImageLayout newLayout);
   // repeated layouts:: we can share them. TODO
   std::map<PipelineType, std::vector<DescriptorBinding>> SHADER_LAYOUTS = {
       {PipelineType::PREPROCESS,
@@ -237,7 +247,12 @@ private:
          "pointsXY"},
         {5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1,
          "outputImage"}}},
-  };
+
+      {PipelineType::UPSAMPLING,
+       {{0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+         VK_SHADER_STAGE_COMPUTE_BIT, 1, "sampler"},
+        {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_COMPUTE_BIT, 1,
+         "finalOutputImage"}}}};
 
   uint32_t _sizeBufferMax = 0;
   GaussianBuffers _gaussianBuffers;
@@ -247,6 +262,14 @@ private:
   VkDescriptorSet _radixDescriptorSets[12];
 
   VkBuffer _resultBufferPrefix;
+
+  struct RenderTarget {
+    VkImage image;
+    VkDeviceMemory memory;
+    VkImageView view;
+    VkSampler sampler;
+  } _renderTarget;
+
 #ifdef __APPLE__
   int _windowResize = 2;
 #else
