@@ -1,0 +1,28 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+
+layout(binding = 0) uniform sampler2D renderTarget;
+
+layout(binding = 1) uniform writeonly image2D swapchainImage;
+
+void main() {
+
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 outputSize = imageSize(swapchainImage);
+
+    if (pixel.x >= outputSize.x || pixel.y >= outputSize.y) {
+        return;
+    }
+    
+
+    vec2 uv = (vec2(pixel) + 0.5) / vec2(outputSize);
+    vec4 color = texture(renderTarget, uv);
+    
+    // Optional: Apply any post-processing
+    // color.rgb = pow(color.rgb, vec3(2.2)); // Gamma correction if needed
+    // color.rgb = color.rgb / (color.rgb + vec3(1.0)); // Tone mapping if needed
+    
+    imageStore(swapchainImage, pixel, color);
+}
