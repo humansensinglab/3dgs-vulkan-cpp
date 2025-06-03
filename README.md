@@ -3,7 +3,7 @@
 Cross-platform 3D Gaussian Splatting implementation with KeyFrame Animation system using **pure Vulkan compute shaders** — no CUDA dependencies.
 
 ![Current State](media/gaussian_record.gif)
-*Real-time rendering with keyframe animation system and configurable parameters on NVIDIA RTX 3070*
+*Real-time rendering with keyframe animation system and configurable parameters on NVIDIA RTX 3060 ti*
 
 ---
 
