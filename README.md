@@ -37,7 +37,7 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 
 **Real-time Controls via ImGui**:
 - **Camera Settings**:
-  - FOV adjustment (30° - 120°)
+  - FOV adjustment (30 - 120)
   - Mouse sensitivity (0.01 - 0.4)
   - Movement speed (1.0 - 10.0)
   
