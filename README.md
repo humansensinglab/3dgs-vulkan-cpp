@@ -172,7 +172,6 @@ build/
 ## ⏳ Roadmap
 
 ### Platform Expansion  
-- **Python binding** — Python library to run the vulkan 3dgs renderer from python scritps (coming soon)
 - **Adjustable World Space** — Camera movements can vary depending on world space. Since some point clouds are tilted, working on providing a customizable world space editor (Coming soon)
 - **Resizable Windows** — Dynamic window resizing support (coming soon)
 - **Enhanced Upsampling** — Bilinear upsampling for Retina displays on macOS
