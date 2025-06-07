@@ -14,13 +14,15 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   CreateCommandBuffers();
   CreateDescriptorPool();
 
+  std::string shaderPath = g_renderSettings.shaderPath;
+
   CreateDescriptorSetLayout(PipelineType::PREPROCESS);
-  CreateComputePipeline("Shaders/preprocess.spv", PipelineType::PREPROCESS, 4);
+  CreateComputePipeline(shaderPath + "Shaders/preprocess.spv", PipelineType::PREPROCESS, 4);
   SetupDescriptorSet(PipelineType::PREPROCESS);
   UpdateAllDescriptorSets(PipelineType::PREPROCESS);
 
   CreateDescriptorSetLayout(PipelineType::PREFIXSUM);
-  CreateComputePipeline("Shaders/sum.spv", PipelineType::PREFIXSUM, 3);
+  CreateComputePipeline(shaderPath + "Shaders/sum.spv", PipelineType::PREFIXSUM, 3);
   SetupDescriptorSet(PipelineType::PREFIXSUM);
   UpdateAllDescriptorSets(PipelineType::PREFIXSUM);
 
@@ -30,15 +32,15 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
    UpdateAllDescriptorSets(PipelineType::NEAREST);*/
 
   CreateDescriptorSetLayout(PipelineType::ASSIGN_TILE_IDS);
-  CreateComputePipeline("Shaders/idkeys.spv", PipelineType::ASSIGN_TILE_IDS, 3);
+  CreateComputePipeline(shaderPath + "Shaders/idkeys.spv", PipelineType::ASSIGN_TILE_IDS, 3);
   SetupDescriptorSet(PipelineType::ASSIGN_TILE_IDS);
   UpdateAllDescriptorSets(PipelineType::ASSIGN_TILE_IDS);
 
   CreateDescriptorSetLayout(PipelineType::RADIX_HISTOGRAM_0);
-  CreateComputePipeline("Shaders/histogram.spv",
+  CreateComputePipeline(shaderPath + "Shaders/histogram.spv",
                         PipelineType::RADIX_HISTOGRAM_0, 4);
   CreateDescriptorSetLayout(PipelineType::RADIX_SCATTER_0);
-  CreateComputePipeline("Shaders/sort.spv", PipelineType::RADIX_SCATTER_0, 4);
+  CreateComputePipeline(shaderPath + "Shaders/sort.spv", PipelineType::RADIX_SCATTER_0, 4);
 
   SetupDescriptorSet(PipelineType::RADIX_HISTOGRAM_0);
   UpdateAllDescriptorSets(PipelineType::RADIX_HISTOGRAM_0);
@@ -53,16 +55,16 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   UpdateAllDescriptorSets(PipelineType::RADIX_SCATTER_1);
 
   CreateDescriptorSetLayout(PipelineType::TILE_BOUNDARIES);
-  CreateComputePipeline("Shaders/boundaries.spv", PipelineType::TILE_BOUNDARIES,
+  CreateComputePipeline(shaderPath + "Shaders/boundaries.spv", PipelineType::TILE_BOUNDARIES,
                         1);
   SetupDescriptorSet(PipelineType::TILE_BOUNDARIES);
   UpdateAllDescriptorSets(PipelineType::TILE_BOUNDARIES);
 
   CreateDescriptorSetLayout(PipelineType::RENDER);
 #ifdef SHARED_MEM_RENDERING
-  CreateComputePipeline("Shaders/render_shared.spv", PipelineType::RENDER, 4);
+  CreateComputePipeline(shaderPath + "Shaders/render_shared.spv", PipelineType::RENDER, 4);
 #else
-  CreateComputePipeline("Shaders/render.spv", PipelineType::RENDER, 4);
+  CreateComputePipeline(shaderPath + "Shaders/render.spv", PipelineType::RENDER, 4);
 #endif
   SetupDescriptorSet(PipelineType::RENDER);
   UpdateAllDescriptorSets(PipelineType::RENDER);
@@ -70,7 +72,7 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
 #ifdef __APPLE__
   createRenderTarget();
   CreateDescriptorSetLayout(PipelineType::UPSAMPLING);
-  CreateComputePipeline("Shaders/upsample.spv", PipelineType::UPSAMPLING, 3);
+  CreateComputePipeline(shaderPath + "Shaders/upsample.spv", PipelineType::UPSAMPLING, 3);
   SetupDescriptorSet(PipelineType::UPSAMPLING);
   UpdateAllDescriptorSets(PipelineType::UPSAMPLING);
 #endif
