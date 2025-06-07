@@ -4,9 +4,8 @@
 #include "PLYLoader.h"
 
 std::unique_ptr<GaussianBase> PLYLoader::LoadPLY(const std::string &path,
-                                                 int sh_degree) {
+                                                 int &sh_degree) {
   auto data = std::make_unique<GaussianBase>();
-  data->_shDegree = sh_degree;
 
   std::ifstream file(path, std::ios::binary);
   if (!file.is_open()) {
@@ -20,6 +19,7 @@ std::unique_ptr<GaussianBase> PLYLoader::LoadPLY(const std::string &path,
     return nullptr;
   }
 
+  sh_degree = data->_shDegree;
   // Read vertex data
   if (!ReadVertexData(file, *data)) {
     std::cerr << "Error: Failed to read vertex data" << std::endl;
@@ -48,6 +48,21 @@ bool PLYLoader::ParseHeader(std::ifstream &file, GaussianBase &data) {
     } else if (line == "end_header") {
       break;
     }
+  }
+  uint32_t numberProperties = properties.size();
+  switch (numberProperties) {
+  case 17:
+    data._shDegree = 0;
+    break;
+  case 26:
+    data._shDegree = 1;
+    break;
+  case 41:
+    data._shDegree = 2;
+    break;
+  case 62:
+    data._shDegree = 3;
+    break;
   }
 
   return data._numGaussians > 0;

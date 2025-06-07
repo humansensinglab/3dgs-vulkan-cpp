@@ -10,7 +10,7 @@
 class PLYLoader {
 public:
   static std::unique_ptr<GaussianBase> LoadPLY(const std::string &path,
-                                               int max_sh_degree = 3);
+                                               int &max_sh_degree);
 
 private:
   static bool ParseHeader(std::ifstream &file, GaussianBase &data);

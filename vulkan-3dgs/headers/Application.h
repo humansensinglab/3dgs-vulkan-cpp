@@ -12,15 +12,16 @@
 class Application {
 public:
   Application(InputArgs args)
-      : _pointCloudFile(args.ply), _degree(args.degree),
-        _windowManager("3DGS Vulkan"), _frameTimer(), _seqRecorder() {}
+      : _pointCloudFile(args.ply),
+        _windowManager("3DGS Vulkan", args.w, args.h), _frameTimer(),
+        _seqRecorder() {}
   void Start();
   void Render();
   bool IsRunning() const { return _windowManager.IsActive(); }
 
 private:
   const std::string _pointCloudFile;
-  const int _degree;
+  int _degree = 0;
   FrameTimer _frameTimer;
   WindowManager _windowManager;
   std::unique_ptr<GaussianBase> _gaussianData;

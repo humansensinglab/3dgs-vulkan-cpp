@@ -42,7 +42,8 @@ struct FrameTimer {
 
 struct InputArgs {
   std::string ply;
-  int degree;
+  int w;
+  int h;
 };
 constexpr int AVG_GAUSS_TILE = 4;
 
@@ -111,27 +112,33 @@ static std::vector<char> ReadFile(const std::string &filename) {
 }
 
 static std::optional<InputArgs> checkArgs(int argc, char *argv[]) {
-  if (argc < 3) {
-    std::cerr << "Usage: " << argv[0] << " <pointcloud_file> <SH_degree>"
+  if (argc != 2 && argc != 4) {
+    std::cerr << "Usage: " << argv[0]
+              << " <pointcloud_file> (<width> <height>)-optional-" << std::endl;
+    std::cerr << "Example: " << argv[0] << " data/scene.ply 1200 800"
               << std::endl;
-    std::cerr << "Example: " << argv[0] << " data/scene.ply 3" << std::endl;
     return std::nullopt;
   }
 
   std::string pointcloudPath = argv[1];
-  int shDegree = std::atoi(argv[2]);
 
   if (!std::filesystem::exists(pointcloudPath)) {
     std::cerr << "Error: File '" << pointcloudPath << "' does not exist!"
               << std::endl;
     return std::nullopt;
   }
+  int w = 1200;
+  int h = 800;
 
-  if (shDegree < 0 || shDegree > 3) {
-    std::cerr << "Error: SH degree " << shDegree << " not supported (0-3)"
-              << std::endl;
-    return std::nullopt;
+  if (argc > 2) {
+    w = atoi(argv[2]);
+    h = atoi(argv[3]);
+    if (w < 500 && w > 3200 && h < 400 && h > 2500) {
+      std::cerr << "Error: Width & Hight dimensions exceed the expected range"
+                << std::endl;
+      return std::nullopt;
+    }
   }
 
-  return InputArgs{pointcloudPath, shDegree};
+  return InputArgs{pointcloudPath, w, h};
 }

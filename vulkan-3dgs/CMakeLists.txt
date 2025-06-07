@@ -7,9 +7,8 @@ endif()
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 file(GLOB_RECURSE HEADERS "headers/*.h")
 
-if(BUILD_PYTHON_BINDING)
-    list(FILTER SOURCES EXCLUDE REGEX ".*binding\\.cpp$")
-endif()
+list(FILTER SOURCES EXCLUDE REGEX ".*bindings\\.cpp$")
+list(FILTER SOURCES EXCLUDE REGEX ".*entrypoint_python\\.cpp$")
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 
