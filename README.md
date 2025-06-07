@@ -1,6 +1,6 @@
 # Vulkan 3D Gaussian Splatting
 
-Cross-platform 3D Gaussian Splatting implementation with KeyFrame Animation system using **pure Vulkan compute shaders** — no CUDA dependencies.
+Cross-platform 3D Gaussian Splatting implementation with KeyFrame Animation system using **pure Vulkan compute shaders** — no CUDA dependencies. Python support.
 
 ![Current State](media/gaussian_record.gif)
 *Real-time rendering with keyframe animation system and configurable parameters on NVIDIA RTX 3060 ti*
@@ -14,7 +14,7 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 
 - ✅ **Cross-platform**: Runs on Windows, macOS, and Linux (Currently working to give support)
 - ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon
-- ✅ **Python Integration**: Planning to provide bindings to run from Python (support will be added by 6th June 2025)
+- ✅ **Python Integration**: Bindings to run the renderer from python. For this, check [Vulkan 3dgs Python](https://github.com/AlejandroAmat/vulkan-3dgs-python)
 
      Note: For AMD change the SUBGROUP_SIZE to 64 in the [radix_sort/radixsort.comp shader](vulkan-3dgs/src/Shaders/radix_sort/radixsort.comp)
 ---
