@@ -18,6 +18,9 @@ else()
 endif()
 
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/third-party/imgui)
+if(BUILD_PYTHON_BINDING)
+    add_subdirectory(third-party/pybind11)
+endif()
 
 if(NOT EXISTS ${IMGUI_DIR})
     message(FATAL_ERROR "ImGui not found at ${IMGUI_DIR}. Did you add the submodule?")
@@ -48,5 +51,4 @@ endif()
 
 
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT vulkan-3dgs)
-
 add_subdirectory(vulkan-3dgs)

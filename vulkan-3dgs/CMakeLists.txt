@@ -1,9 +1,5 @@
 option(BUILD_PYTHON_BINDING "Build Python binding" OFF)
 
-if(BUILD_PYTHON_BINDING)
-    find_package(pybind11 REQUIRED)
-endif()
-
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 file(GLOB_RECURSE HEADERS "headers/*.h")
 
@@ -60,10 +56,9 @@ endif()
 
 
 if(BUILD_PYTHON_BINDING)
-    # Create a library with all the core functionality (exclude main.cpp and binding.cpp)
     file(GLOB_RECURSE CORE_SOURCES "src/*.cpp")
     list(FILTER CORE_SOURCES EXCLUDE REGEX ".*main\\.cpp$")
-    list(FILTER CORE_SOURCES EXCLUDE REGEX ".*binding\\.cpp$")
+    list(FILTER CORE_SOURCES EXCLUDE REGEX ".*bindings\\.cpp$")
     
     add_library(vulkan_3dgs_core STATIC ${CORE_SOURCES} ${HEADERS})
     
@@ -76,24 +71,24 @@ if(BUILD_PYTHON_BINDING)
     
     if(WIN32)
         target_compile_definitions(vulkan_3dgs_core PRIVATE VK_USE_PLATFORM_WIN32_KHR NOMINMAX)
-        target_link_directories(vulkan_3dgs_core PRIVATE
+        target_link_directories(vulkan_3dgs_core PUBLIC
             ${CMAKE_SOURCE_DIR}/third-party/GLFW/lib-vc2022
         )
-        target_link_libraries(vulkan_3dgs_core PRIVATE
+        target_link_libraries(vulkan_3dgs_core PUBLIC
             ${Vulkan_LIBRARIES}
             glfw3.lib
             imgui
         )
     elseif(APPLE)
         target_compile_definitions(vulkan_3dgs_core PRIVATE VK_USE_PLATFORM_MACOS_MVK)
-        target_link_libraries(vulkan_3dgs_core PRIVATE
+        target_link_libraries(vulkan_3dgs_core PUBLIC
             ${Vulkan_LIBRARIES}
             glfw
             imgui
         )
     elseif(UNIX)
         target_compile_definitions(vulkan_3dgs_core PRIVATE VK_USE_PLATFORM_XLIB_KHR)
-        target_link_libraries(vulkan_3dgs_core PRIVATE
+        target_link_libraries(vulkan_3dgs_core PUBLIC
             ${Vulkan_LIBRARIES}
             glfw
             imgui
@@ -101,10 +96,10 @@ if(BUILD_PYTHON_BINDING)
     endif()
     
     # Python module
-    pybind11_add_module(vulkan_3dgs_py src/binding.cpp)
-    target_link_libraries(vulkan_3dgs_py PRIVATE vulkan_3dgs_core)
+    pybind11_add_module(vulkan_3dgs_py src/bindings.cpp)
+    target_link_libraries(vulkan_3dgs_py PUBLIC vulkan_3dgs_core)
     
-    target_include_directories(vulkan_3dgs_py PRIVATE 
+    target_include_directories(vulkan_3dgs_py PUBLIC 
         ${CMAKE_CURRENT_SOURCE_DIR}/headers
     )
 endif()
