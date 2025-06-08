@@ -26,6 +26,8 @@ void GaussianRenderer::LoadGaussianData(
 
 void GaussianRenderer::InitComputePipeline() {
   _imguiHandler.Init();
+  _graphcsPipeline.setBufferManager(&_bufferManager);
+  _graphcsPipeline.Init();
   _computePipeline.setNumGaussians(_nGauss);
   g_renderSettings.numGaussians = _nGauss;
   _computePipeline.Initialize(_buffers);
@@ -39,11 +41,11 @@ void GaussianRenderer::CreateBuffers() {
   _computePipeline.setBufferManager(&_bufferManager);
 }
 
-void GaussianRenderer::Render() { _computePipeline.RenderFrame(); }
+void GaussianRenderer::Render() { _computePipeline.RenderFrame(*_camera); }
 
 void GaussianRenderer::InitializeCamera(float windowWidth, float windowHeight) {
   float aspectRatio = windowWidth / windowHeight;
-  _camera = std::make_unique<Camera>(int(windowWidth), int(windowHeight), 45.0f,
+  _camera = std::make_shared<Camera>(int(windowWidth), int(windowHeight), 45.0f,
                                      aspectRatio, 0.1f, 1000.0f);
 
   _camera->SetMovementSpeed(3.0f);
@@ -117,6 +119,10 @@ void GaussianRenderer::processInput(float deltaTime) {
     _camera->ProcessKeyboard(CameraMovement::UP, deltaTime);
   if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS)
     _camera->ProcessKeyboard(CameraMovement::DOWN, deltaTime);
+  if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+    _camera->ProcessKeyboard(CameraMovement::ROLL_RIGHT, deltaTime);
+  if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+    _camera->ProcessKeyboard(CameraMovement::ROLL_LEFT, deltaTime);
 
   // ESC to exit
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)

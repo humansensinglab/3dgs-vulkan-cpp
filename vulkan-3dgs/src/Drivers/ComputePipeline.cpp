@@ -17,12 +17,14 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   std::string shaderPath = g_renderSettings.shaderPath;
 
   CreateDescriptorSetLayout(PipelineType::PREPROCESS);
-  CreateComputePipeline(shaderPath + "Shaders/preprocess.spv", PipelineType::PREPROCESS, 4);
+  CreateComputePipeline(shaderPath + "Shaders/preprocess.spv",
+                        PipelineType::PREPROCESS, 4);
   SetupDescriptorSet(PipelineType::PREPROCESS);
   UpdateAllDescriptorSets(PipelineType::PREPROCESS);
 
   CreateDescriptorSetLayout(PipelineType::PREFIXSUM);
-  CreateComputePipeline(shaderPath + "Shaders/sum.spv", PipelineType::PREFIXSUM, 3);
+  CreateComputePipeline(shaderPath + "Shaders/sum.spv", PipelineType::PREFIXSUM,
+                        3);
   SetupDescriptorSet(PipelineType::PREFIXSUM);
   UpdateAllDescriptorSets(PipelineType::PREFIXSUM);
 
@@ -32,7 +34,8 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
    UpdateAllDescriptorSets(PipelineType::NEAREST);*/
 
   CreateDescriptorSetLayout(PipelineType::ASSIGN_TILE_IDS);
-  CreateComputePipeline(shaderPath + "Shaders/idkeys.spv", PipelineType::ASSIGN_TILE_IDS, 3);
+  CreateComputePipeline(shaderPath + "Shaders/idkeys.spv",
+                        PipelineType::ASSIGN_TILE_IDS, 3);
   SetupDescriptorSet(PipelineType::ASSIGN_TILE_IDS);
   UpdateAllDescriptorSets(PipelineType::ASSIGN_TILE_IDS);
 
@@ -40,7 +43,8 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   CreateComputePipeline(shaderPath + "Shaders/histogram.spv",
                         PipelineType::RADIX_HISTOGRAM_0, 4);
   CreateDescriptorSetLayout(PipelineType::RADIX_SCATTER_0);
-  CreateComputePipeline(shaderPath + "Shaders/sort.spv", PipelineType::RADIX_SCATTER_0, 4);
+  CreateComputePipeline(shaderPath + "Shaders/sort.spv",
+                        PipelineType::RADIX_SCATTER_0, 4);
 
   SetupDescriptorSet(PipelineType::RADIX_HISTOGRAM_0);
   UpdateAllDescriptorSets(PipelineType::RADIX_HISTOGRAM_0);
@@ -55,16 +59,18 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   UpdateAllDescriptorSets(PipelineType::RADIX_SCATTER_1);
 
   CreateDescriptorSetLayout(PipelineType::TILE_BOUNDARIES);
-  CreateComputePipeline(shaderPath + "Shaders/boundaries.spv", PipelineType::TILE_BOUNDARIES,
-                        1);
+  CreateComputePipeline(shaderPath + "Shaders/boundaries.spv",
+                        PipelineType::TILE_BOUNDARIES, 1);
   SetupDescriptorSet(PipelineType::TILE_BOUNDARIES);
   UpdateAllDescriptorSets(PipelineType::TILE_BOUNDARIES);
 
   CreateDescriptorSetLayout(PipelineType::RENDER);
 #ifdef SHARED_MEM_RENDERING
-  CreateComputePipeline(shaderPath + "Shaders/render_shared.spv", PipelineType::RENDER, 4);
+  CreateComputePipeline(shaderPath + "Shaders/render_shared.spv",
+                        PipelineType::RENDER, 4);
 #else
-  CreateComputePipeline(shaderPath + "Shaders/render.spv", PipelineType::RENDER, 4);
+  CreateComputePipeline(shaderPath + "Shaders/render.spv", PipelineType::RENDER,
+                        4);
 #endif
   SetupDescriptorSet(PipelineType::RENDER);
   UpdateAllDescriptorSets(PipelineType::RENDER);
@@ -72,7 +78,8 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
 #ifdef __APPLE__
   createRenderTarget();
   CreateDescriptorSetLayout(PipelineType::UPSAMPLING);
-  CreateComputePipeline(shaderPath + "Shaders/upsample.spv", PipelineType::UPSAMPLING, 3);
+  CreateComputePipeline(shaderPath + "Shaders/upsample.spv",
+                        PipelineType::UPSAMPLING, 3);
   SetupDescriptorSet(PipelineType::UPSAMPLING);
   UpdateAllDescriptorSets(PipelineType::UPSAMPLING);
 #endif
@@ -294,11 +301,9 @@ void ComputePipeline::SetupDescriptorSet(const PipelineType pType) {
   std::cout << "  - Setting up descriptor sets for pipeline type " << (int)pType
             << "..." << std::endl;
 
-  // Get number of swapchain images
   uint32_t swapchainImageCount =
       static_cast<uint32_t>(_vkContext.GetSwapchainImages().size());
 
-  // Resize vector to hold one descriptor set per swapchain image
   _descriptorSets[pType].resize(swapchainImageCount);
 
   std::vector<VkDescriptorSetLayout> layouts;
@@ -316,8 +321,6 @@ void ComputePipeline::SetupDescriptorSet(const PipelineType pType) {
                                                  _descriptorSetLayouts[pType]);
   }
 
-  // Now 'layouts' is accessible here
-  // Allocate all descriptor sets at once
   VkDescriptorSetAllocateInfo allocInfo = {};
   allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
   allocInfo.descriptorPool = _descriptorPool;
@@ -455,8 +458,8 @@ void ComputePipeline::RecordCommandPreprocess(uint32_t imageIndex) {
             << std::endl;*/
 }
 
-void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
-                                          int numRendered) {
+void ComputePipeline::RecordCommandRender(uint32_t imageIndex, int numRendered,
+                                          Camera &cam) {
   VkCommandBuffer commandBuffer = _renderCommandBuffers[imageIndex];
 
   // Begin recording
@@ -707,8 +710,19 @@ void ComputePipeline::RecordCommandRender(uint32_t imageIndex,
                   VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
                   VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                   VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+
+  _graphicsPipeline.RecordAxisRenderPass(commandBuffer, imageIndex, cam);
+
+  VkMemoryBarrier barrier_graphics = {};
+  barrier_graphics.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+  barrier_graphics.srcAccessMask = VK_ACCESS_SHADER_WRITE_BIT;
+  barrier_graphics.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+
+  vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 1,
+                       &barrier_graphics, 0, nullptr, 0, nullptr);
   // Record ImGui render pass
-  RecordImGuiRenderPass(commandBuffer, imageIndex);
+  RecordImGuiRenderPass(commandBuffer, imageIndex, cam);
 
   TransitionImage(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                   VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
@@ -770,7 +784,7 @@ void ComputePipeline::TransitionImage(VkCommandBuffer commandBuffer,
       &barrier); // 1 image barrier, no memory/buffer barriers //
 }
 
-void ComputePipeline::RenderFrame() {
+void ComputePipeline::RenderFrame(Camera &cam) {
 
   vkWaitForFences(_vkContext.GetLogicalDevice(), 1,
                   &_renderFences[_currentFrame], VK_TRUE, UINT64_MAX);
@@ -805,7 +819,7 @@ void ComputePipeline::RenderFrame() {
   vkResetFences(_vkContext.GetLogicalDevice(), 1,
                 &_renderFences[_currentFrame]);
 
-  RecordCommandRender(imageIndex, totalRendered);
+  RecordCommandRender(imageIndex, totalRendered, cam);
   submitCommandBuffer(imageIndex, false);
 
   VkPresentInfoKHR presentInfo = {};
@@ -1033,10 +1047,10 @@ void ComputePipeline::resizeBuffers(float size) {
 void ComputePipeline::SetUpRadixBuffers() {}
 
 void ComputePipeline::RecordImGuiRenderPass(VkCommandBuffer commandBuffer,
-                                            uint32_t imageIndex) {
+                                            uint32_t imageIndex, Camera &cam) {
 
   _imGuiHandler.NewFrame();
-  _imGuiHandler.CreateUI();
+  _imGuiHandler.CreateUI(cam);
 
   _imGuiHandler.RecordImGuiRenderPass(commandBuffer, imageIndex);
 }

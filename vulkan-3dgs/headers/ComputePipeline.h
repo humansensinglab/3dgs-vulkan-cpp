@@ -12,6 +12,7 @@
 #include <iostream>
 #include <map>
 #define NOT_SHARED_MEM_RENDERING
+#include "GraphicsPipeline.h"
 #include "RenderSettings.h"
 
 const uint32_t WORKGROUP_SIZE = 256;
@@ -47,12 +48,14 @@ enum class PipelineType {
 
 class ComputePipeline {
 public:
-  ComputePipeline(VulkanContext &vkContext, ImguiUI &imguiHandler)
-      : _vkContext(vkContext), _imGuiHandler(imguiHandler){};
+  ComputePipeline(VulkanContext &vkContext, ImguiUI &imguiHandler,
+                  GraphicsPipeline &graphicsPipeline)
+      : _vkContext(vkContext), _imGuiHandler(imguiHandler),
+        _graphicsPipeline(graphicsPipeline){};
   ~ComputePipeline() { CleanUp(); }
 
   void Initialize(GaussianBuffers gaussianBuffer);
-  void RenderFrame();
+  void RenderFrame(Camera &cam);
   void CleanUp();
   void setNumGaussians(int gauss) {
     _numGaussians = gauss;
@@ -66,6 +69,7 @@ public:
 private:
   VulkanContext &_vkContext;
   ImguiUI &_imGuiHandler;
+  GraphicsPipeline &_graphicsPipeline;
   std::vector<VkCommandBuffer> _commandBuffers;
   std::vector<VkCommandBuffer> _renderCommandBuffers;
   std::vector<VkFence> _preprocessFences;
@@ -89,7 +93,7 @@ private:
                              int numPushConstants = 0);
   void SetupDescriptorSet(const PipelineType pType);
   void RecordCommandPreprocess(uint32_t imageIndex);
-  void RecordCommandRender(uint32_t imageIndex, int numRendered);
+  void RecordCommandRender(uint32_t imageIndex, int numRendered, Camera &cam);
   VkShaderModule CreateShaderModule(const std::vector<char> &code);
 
   void TransitionImage(VkCommandBuffer commandBuffer, VkImageLayout in,
@@ -111,8 +115,8 @@ private:
   int getRadixIterations();
   void resizeBuffers(float size);
   void SetUpRadixBuffers();
-  void RecordImGuiRenderPass(VkCommandBuffer commandBuffer,
-                             uint32_t imageIndex);
+  void RecordImGuiRenderPass(VkCommandBuffer commandBuffer, uint32_t imageIndex,
+                             Camera &cam);
   void clearSwapchain(VkCommandBuffer commandBuffer, uint32_t imageIndex,
                       bool toGeneral = false);
   void BindSamplerToDescriptor(const PipelineType pType, uint32_t i,

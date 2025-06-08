@@ -5,7 +5,7 @@ void ImguiUI::Init() {
   CreateRenderPass();
   CreateFrameBuffers();
   CreateDescriporPool();
-  CreateCommandBuffers();
+  // CreateCommandBuffers();
 
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -195,10 +195,10 @@ void ImguiUI::NewFrame() {
   ImGui::NewFrame();
 }
 
-void ImguiUI::CreateUI() {
+void ImguiUI::CreateUI(Camera &cam) {
 
   ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Once);
-  ImGui::SetNextWindowSize(ImVec2(std::min(_w / 3, 350), std::min(_h, 720)),
+  ImGui::SetNextWindowSize(ImVec2(std::min(_w / 3, 350), std::min(_h, 800)),
                            ImGuiCond_Once);
   ImGui::Begin("3D Gaussian Splatting");
 
@@ -253,8 +253,8 @@ void ImguiUI::CreateUI() {
 #ifdef __APPLE__
     resize = 2;
 #endif
-    ImGui::Text("Resolution: %d x %d", g_renderSettings.width*resize,
-                g_renderSettings.height*resize);
+    ImGui::Text("Resolution: %d x %d", g_renderSettings.width * resize,
+                g_renderSettings.height * resize);
     ImGui::Text("Number of Gaussians: %d", g_renderSettings.numGaussians);
     ImGui::Text("Number of Rendered Splats: %d", g_renderSettings.numRendered);
 
@@ -313,6 +313,25 @@ void ImguiUI::CreateUI() {
   ImGui::Checkbox("Sequence Mode", &g_renderSettings.sequenceMode);
   ImGui::Separator();
   ImGui::EndDisabled();
+
+  ImGui::Separator();
+  static float rotX = 0.0f;
+  static float rotY = 0.0f;
+  static float rotZ = 0.0f;
+
+  ImGui::Spacing();
+
+  if (ImGui::Button("Set Current View as Reference")) {
+    // Call camera's SetNewReference method
+    cam.SetNewReference(); // You'll need access to camera instance
+  }
+
+  ImGui::SameLine();
+  ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f),
+                     "(Sets current orientation as new 'up')");
+
+  ImGui::Spacing();
+
   // Controls
   {
     ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Controls");

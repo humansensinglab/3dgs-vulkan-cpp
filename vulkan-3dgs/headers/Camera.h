@@ -8,7 +8,17 @@
 #include <glm/gtc/quaternion.hpp> // Add this for quaternion functions
 #include <glm/gtx/quaternion.hpp>
 #include <iostream>
-enum class CameraMovement { FORWARD, BACKWARD, LEFT, RIGHT, UP, DOWN, SEQ };
+enum class CameraMovement {
+  FORWARD,
+  BACKWARD,
+  LEFT,
+  RIGHT,
+  UP,
+  DOWN,
+  ROLL_LEFT,
+  ROLL_RIGHT,
+  SEQ
+};
 
 struct CameraUniforms {
   alignas(16) glm::mat4 viewMatrix;
@@ -46,8 +56,9 @@ public:
   void UpdateAspectRatio(float aspectRatio);
   CameraUniforms getUniforms();
 
-  void RotateTarget(float dX, float dY);
-  void SwitchMode();
+  void SetNewReference();
+  glm::mat4 GetCurrentRotationForGizmo() const;
+  void UpdateAnglesFromVectors();
 
 private:
   glm::vec3 _pos, _front, _up, _worldUp, _right;
@@ -61,6 +72,9 @@ private:
   int _w, _h;
 
   bool _lookAt = false;
+
+  glm::mat4 _baseReference;
+  glm::mat4 _currentReference;
 
   CameraUniforms _uniforms;
   void UpdateCameraVectors();

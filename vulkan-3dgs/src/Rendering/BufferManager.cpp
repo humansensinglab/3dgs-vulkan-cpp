@@ -37,6 +37,15 @@ VkBuffer BufferManager::CreateUniformBuffer(VkDevice device,
                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 }
 
+VkBuffer BufferManager::CreateVertexBuffer(VkDevice device,
+                                           VkPhysicalDevice physicalDevice,
+                                           VkDeviceSize size) {
+  return CreateBuffer(device, physicalDevice, size,
+                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+}
+
 void BufferManager::CreateBufferInternal(
     VkDevice device, VkPhysicalDevice physicalDevice, VkDeviceSize size,
     VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,

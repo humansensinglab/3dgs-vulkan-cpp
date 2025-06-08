@@ -36,7 +36,10 @@ struct RenderSettings {
   bool sequenceMode = false;
   bool playing = false;
 
-  std::string shaderPath ="";
+  glm::mat4 global_rotation = glm::mat4(1.0f);
+  glm::mat4 globalRotation = glm::mat4(1.0f);
+  bool showAxis = false;
+  std::string shaderPath = "";
 };
 
 struct CameraKeyframe {

@@ -22,6 +22,9 @@ public:
 
   VkBuffer CreateUniformBuffer(VkDevice device, VkPhysicalDevice physicalDevice,
                                VkDeviceSize size);
+
+  VkBuffer CreateVertexBuffer(VkDevice device, VkPhysicalDevice physicalDevice,
+                              VkDeviceSize size);
   void CleanupAllBuffers(VkDevice device);
   void DestroyBuffer(VkDevice device, VkBuffer buffer);
   void copyBuffer(VkDevice device, VkDeviceSize deviceSize, VkBuffer srcBuffer,

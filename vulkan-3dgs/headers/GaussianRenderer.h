@@ -7,6 +7,7 @@
 #include "Camera.h"
 #include "ComputePipeline.h"
 #include "GaussianBase.h"
+#include "GraphicsPipeline.h"
 #include "Imgui3DGS.h"
 #include "RenderSettings.h"
 #include "Sequence.h"
@@ -18,7 +19,9 @@ public:
                    Sequence &seqRecorder)
       : _vulkanContext(vulkanContext), _bufferManager(),
         _imguiHandler(vulkanContext, seqRecorder),
-        _computePipeline(vulkanContext, _imguiHandler), _shDegree(shDegree) {
+        _graphcsPipeline(_vulkanContext),
+        _computePipeline(vulkanContext, _imguiHandler, _graphcsPipeline),
+        _shDegree(shDegree) {
 
     std::cout << "GaussianRenderer created" << std::endl;
   };
@@ -49,6 +52,7 @@ private:
   std::unique_ptr<GaussianBase> _gaussianData;
   ComputePipeline _computePipeline;
   ImguiUI _imguiHandler;
+  GraphicsPipeline _graphcsPipeline;
 
   void CreateGaussianBuffers();
   void CreatePipelineStorageBuffers();
@@ -63,7 +67,7 @@ private:
   void CreateCopyStagingBuffer();
   void CreateRangesBuffer();
   GaussianBuffers _buffers;
-  std::unique_ptr<Camera> _camera;
+  std::shared_ptr<Camera> _camera;
   int _shDegree;
   uint32_t _nGauss;
   void *_cameraUniformMapped = nullptr;
