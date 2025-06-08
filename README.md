@@ -96,7 +96,7 @@ cmake --build . --config Debug
 - Open `build/vulkan-3dgs.sln`
 - Set `vulkan-3dgs` as the startup project
 - Press F5 to build and run
-- **Note**: The program expects PLY path and shDegrees as arguments - configure these in project properties
+- **Note**: The program expects PLY path and optionally width and height - configure these in project properties
 
 ### Step 5: Locate the Executable
 The executable will be created in:
