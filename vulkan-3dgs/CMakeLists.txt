@@ -29,13 +29,13 @@ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/headers"
              PREFIX "Header Files" 
              FILES ${HEADERS})
 
-target_include_directories(${PROJECT_NAME} PRIVATE 
+target_include_directories(${PROJECT_NAME} PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}/headers
     ${CMAKE_SOURCE_DIR}/third-party/GLM
     ${Vulkan_INCLUDE_DIRS}
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE
+target_link_libraries(${PROJECT_NAME} PUBLIC
     ${Vulkan_LIBRARIES}
     glfw
     imgui
@@ -48,13 +48,13 @@ if(BUILD_PYTHON_BINDING)
     
     add_library(vulkan_3dgs_core STATIC ${CORE_SOURCES} ${HEADERS})
     
-    target_include_directories(vulkan_3dgs_core PRIVATE 
+    target_include_directories(vulkan_3dgs_core PUBLIC 
         ${CMAKE_CURRENT_SOURCE_DIR}/headers
         ${CMAKE_SOURCE_DIR}/third-party/GLM
         ${Vulkan_INCLUDE_DIRS}
     )
     
-    target_compile_definitions(vulkan_3dgs_core PRIVATE 
+    target_compile_definitions(vulkan_3dgs_core PUBLIC 
         $<$<PLATFORM_ID:Windows>:VK_USE_PLATFORM_WIN32_KHR NOMINMAX>
         $<$<PLATFORM_ID:Darwin>:VK_USE_PLATFORM_MACOS_MVK>
         $<$<PLATFORM_ID:Linux>:VK_USE_PLATFORM_XLIB_KHR>
