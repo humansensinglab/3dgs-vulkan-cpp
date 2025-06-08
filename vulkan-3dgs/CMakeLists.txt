@@ -31,29 +31,15 @@ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/headers"
 
 target_include_directories(${PROJECT_NAME} PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/headers
-    ${CMAKE_SOURCE_DIR}/third-party/GLFW/include
     ${CMAKE_SOURCE_DIR}/third-party/GLM
     ${Vulkan_INCLUDE_DIRS}
 )
 
-if(WIN32)
-    target_link_directories(${PROJECT_NAME} PRIVATE
-        ${CMAKE_SOURCE_DIR}/third-party/GLFW/lib-vc2022
-    )
-    target_link_libraries(${PROJECT_NAME} PRIVATE
-        ${Vulkan_LIBRARIES}
-        glfw3.lib
-        imgui
-    )
-else()
-    find_package(glfw3 REQUIRED)
-    target_link_libraries(${PROJECT_NAME} PRIVATE
-        ${Vulkan_LIBRARIES}
-        glfw
-        imgui
-    )
-endif()
-
+target_link_libraries(${PROJECT_NAME} PRIVATE
+    ${Vulkan_LIBRARIES}
+    glfw
+    imgui
+)
 
 if(BUILD_PYTHON_BINDING)
     file(GLOB_RECURSE CORE_SOURCES "src/*.cpp")
@@ -64,36 +50,21 @@ if(BUILD_PYTHON_BINDING)
     
     target_include_directories(vulkan_3dgs_core PRIVATE 
         ${CMAKE_CURRENT_SOURCE_DIR}/headers
-        ${CMAKE_SOURCE_DIR}/third-party/GLFW/include
         ${CMAKE_SOURCE_DIR}/third-party/GLM
         ${Vulkan_INCLUDE_DIRS}
     )
     
-    if(WIN32)
-        target_compile_definitions(vulkan_3dgs_core PRIVATE VK_USE_PLATFORM_WIN32_KHR NOMINMAX)
-        target_link_directories(vulkan_3dgs_core PUBLIC
-            ${CMAKE_SOURCE_DIR}/third-party/GLFW/lib-vc2022
-        )
-        target_link_libraries(vulkan_3dgs_core PUBLIC
-            ${Vulkan_LIBRARIES}
-            glfw3.lib
-            imgui
-        )
-    elseif(APPLE)
-        target_compile_definitions(vulkan_3dgs_core PRIVATE VK_USE_PLATFORM_MACOS_MVK)
-        target_link_libraries(vulkan_3dgs_core PUBLIC
-            ${Vulkan_LIBRARIES}
-            glfw
-            imgui
-        )
-    elseif(UNIX)
-        target_compile_definitions(vulkan_3dgs_core PRIVATE VK_USE_PLATFORM_XLIB_KHR)
-        target_link_libraries(vulkan_3dgs_core PUBLIC
-            ${Vulkan_LIBRARIES}
-            glfw
-            imgui
-        )
-    endif()
+    target_compile_definitions(vulkan_3dgs_core PRIVATE 
+        $<$<PLATFORM_ID:Windows>:VK_USE_PLATFORM_WIN32_KHR NOMINMAX>
+        $<$<PLATFORM_ID:Darwin>:VK_USE_PLATFORM_MACOS_MVK>
+        $<$<PLATFORM_ID:Linux>:VK_USE_PLATFORM_XLIB_KHR>
+    )
+
+    target_link_libraries(vulkan_3dgs_core PUBLIC
+        ${Vulkan_LIBRARIES}
+        glfw
+        imgui
+    )
     
     # Python module
     pybind11_add_module(vulkan_3dgs_py src/bindings.cpp)

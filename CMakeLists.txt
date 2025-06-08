@@ -22,6 +22,8 @@ if(BUILD_PYTHON_BINDING)
     add_subdirectory(third-party/pybind11)
 endif()
 
+add_subdirectory(third-party/glfw)
+
 if(NOT EXISTS ${IMGUI_DIR})
     message(FATAL_ERROR "ImGui not found at ${IMGUI_DIR}. Did you add the submodule?")
 endif()
@@ -37,10 +39,9 @@ target_include_directories(imgui PUBLIC
     ${IMGUI_DIR}
     ${IMGUI_DIR}/backends
     ${Vulkan_INCLUDE_DIRS}
-    ${CMAKE_SOURCE_DIR}/third-party/GLFW/include
 )
 
-
+target_link_libraries(imgui PUBLIC glfw)
 if(WIN32)
     target_compile_definitions(imgui PUBLIC VK_USE_PLATFORM_WIN32_KHR NOMINMAX)
 elseif(APPLE)

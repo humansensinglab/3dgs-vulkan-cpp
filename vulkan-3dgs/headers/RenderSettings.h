@@ -35,6 +35,8 @@ struct RenderSettings {
 
   bool sequenceMode = false;
   bool playing = false;
+
+  std::string shaderPath ="";
 };
 
 struct CameraKeyframe {
