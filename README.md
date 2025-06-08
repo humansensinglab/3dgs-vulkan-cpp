@@ -61,10 +61,8 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 
 ### Prerequisites
 - **Vulkan SDK 1.3+** - Download from https://vulkan.lunarg.com/
-- **macOS**: Install GLFW via Homebrew: `brew install glfw`
 - **Compiler**: Visual Studio 2022 (Windows) or GCC/Clang (Linux/macOS)
 - **CMake 3.16+**
-- **Compatible GPU** with Vulkan support
 
 ### Step 1: Clone the Repository
 ```bash
