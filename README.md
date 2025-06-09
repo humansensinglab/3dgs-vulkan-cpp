@@ -12,7 +12,7 @@ SH_DEGREE=3
 
 Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This project uses **standard Vulkan 1.3**, and provides:
 
-- ✅ **Cross-platform**: Runs on Windows, macOS, and Linux (Currently working to give support)
+- ✅ **Cross-platform**: Runs on Windows, macOS, and Linux
 - ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon
 - ✅ **HPC render**: 30-90fps real-time gaussian rendering.
 - ✅ **Python Integration**: Bindings to run the renderer from python. For this, check [Vulkan 3dgs Python](https://github.com/AlejandroAmat/vulkan-3dgs-python)
@@ -171,6 +171,7 @@ build/
 
 ### Platform Expansion  
 - **Resizable Windows** — Dynamic window resizing support (coming soon)
+- **Image Snapshot** — Direct jpeg export from image snaphot
 - **Video Export** — Direct MP4/AVI export from animation sequences
 - **Mobile Support** — Native Android app + iOS via MoltenVK
 
