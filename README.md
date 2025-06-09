@@ -10,20 +10,17 @@ Cross-platform 3D Gaussian Splatting implementation with KeyFrame Animation syst
 **Example PLY**: https://huggingface.co/datasets/dylanebert/3dgs/tree/main/bonsai/point_cloud/iteration_30000
 SH_DEGREE=3
 
-Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This project uses **standard Vulkan 1.3**, ensuring:
+Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This project uses **standard Vulkan 1.3**, and provides:
 
 - ✅ **Cross-platform**: Runs on Windows, macOS, and Linux (Currently working to give support)
 - ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon
+- ✅ **HPC render**: 30-90fps real-time gaussian rendering.
 - ✅ **Python Integration**: Bindings to run the renderer from python. For this, check [Vulkan 3dgs Python](https://github.com/AlejandroAmat/vulkan-3dgs-python)
-
+- ✅ **ImGui control System**: Features a Keyframe Animation system for real-time rendering, adjustable FOV, wireframe mode, position, rotation, performance metrics, and more.
+- ✅ **World Axis Reference**:  Easily modify the coordinate system to match your target PLY file, useful for tilted point clouds or specific viewing rotations.
+  
      Note: For AMD change the SUBGROUP_SIZE to 64 in the [radix_sort/radixsort.comp shader](vulkan-3dgs/src/Shaders/radix_sort/radixsort.comp)
 ---
-
-## Features
-
-### Performance
-- **High Performance**: 25-80 FPS on 2M+ Gaussians at 1800x1600 resolution
-- **Real-time Interaction**: WASD + mouse camera control with immediate feedback
 
 ### Keyframe Animation System
 
@@ -99,7 +96,7 @@ cmake --build . --config Debug
 - Open `build/vulkan-3dgs.sln`
 - Set `vulkan-3dgs` as the startup project
 - Press F5 to build and run
-- **Note**: The program expects PLY path and shDegrees as arguments - configure these in project properties
+- **Note**: The program expects PLY path and optionally width and height - configure these in project properties
 
 ### Step 5: Locate the Executable
 The executable will be created in:
@@ -112,11 +109,13 @@ The executable will be created in:
 cd vulkan-3dgs/Release
 
 # Run with a PLY file
-./vulkan-3dgs.exe path/to/your/pointcloud.ply shDegrees
+./vulkan-3dgs.exe path/to/your/pointcloud.ply (optional): width height
 
 #Example
 
-./vulkan-3dgs.exe bonsai.ply 3
+./vulkan-3dgs.exe bonsai.ply
+
+./vulkan-3dgs.exe bonsai.ply 1600 800
 
 ```
 
@@ -148,7 +147,8 @@ build/
 
 ### Camera Controls
 - **WASD** - Move forward/backward/left/right
-- **Q/E** - Move up/down
+- **Q/E** - Rotate (Roll)
+- **C/Space** - Move up/down
 - **Right Mouse + Drag / Two-finger drag (trackpad)** - Look around 
 
 ### Animation Workflow
@@ -170,9 +170,7 @@ build/
 ## ⏳ Roadmap
 
 ### Platform Expansion  
-- **Adjustable World Space** — Camera movements can vary depending on world space. Since some point clouds are tilted, working on providing a customizable world space editor (Coming soon)
 - **Resizable Windows** — Dynamic window resizing support (coming soon)
-- **Enhanced Upsampling** — Bilinear upsampling for Retina displays on macOS
 - **Video Export** — Direct MP4/AVI export from animation sequences
 - **Mobile Support** — Native Android app + iOS via MoltenVK
 
