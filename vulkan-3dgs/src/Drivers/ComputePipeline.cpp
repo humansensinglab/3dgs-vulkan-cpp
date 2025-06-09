@@ -72,6 +72,7 @@ void ComputePipeline::Initialize(GaussianBuffers gaussianBuffer) {
   CreateComputePipeline(shaderPath + "Shaders/render.spv", PipelineType::RENDER,
                         4);
 #endif
+  createRenderTarget();
   SetupDescriptorSet(PipelineType::RENDER);
   UpdateAllDescriptorSets(PipelineType::RENDER);
 
@@ -1143,7 +1144,8 @@ void ComputePipeline::createRenderTarget() {
 
   vkCreateImageView(_vkContext.GetLogicalDevice(), &viewInfo, nullptr,
                     &_renderTarget.view);
-
+ 
+  std::cout << "DEBUG: Created ImageView handle: " << std::hex << _renderTarget.view << std::dec << std::endl;
   // Create sampler for reading the image as texture
   VkSamplerCreateInfo samplerInfo{};
   samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;

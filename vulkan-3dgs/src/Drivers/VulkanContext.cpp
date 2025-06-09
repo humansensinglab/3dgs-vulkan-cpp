@@ -119,62 +119,74 @@ void VulkanContext::CreateSurface() {
 }
 
 void VulkanContext::CreateLogicalDevice() {
+    QueueFamilyIndices ind = GetQueueFamilies(_vcxMainDevice.physicalDevice);
+    std::vector<VkDeviceQueueCreateInfo> deviceQueueInfos;
+    std::set<int> queuesIndex = {ind.graphicsFamily, ind.presentationFamily};
+    std::set<int>::iterator it;
+    for (it = queuesIndex.begin(); it != queuesIndex.end(); ++it) {
+        // queues for logical Device
+        VkDeviceQueueCreateInfo queueInfo = {};
+        queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueInfo.queueFamilyIndex = *it;
+        queueInfo.queueCount = 1;
+        float priority = 1.0f;
+        queueInfo.pQueuePriorities = &priority;
+        deviceQueueInfos.push_back(queueInfo);
+    }
 
-  QueueFamilyIndices ind = GetQueueFamilies(_vcxMainDevice.physicalDevice);
-  std::vector<VkDeviceQueueCreateInfo> deviceQueueInfos;
-  std::set<int> queuesIndex = {ind.graphicsFamily, ind.presentationFamily};
-  std::set<int>::iterator it;
-  for (it = queuesIndex.begin(); it != queuesIndex.end(); ++it) {
-    // queues for logical Device
-    VkDeviceQueueCreateInfo queueInfo = {};
-    queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueInfo.queueFamilyIndex = *it;
-    queueInfo.queueCount = 1;
-    float priority = 1.0f;
-    queueInfo.pQueuePriorities = &priority;
-    deviceQueueInfos.push_back(queueInfo);
-  }
+    // Platform-specific extension handling
+    std::vector<const char*> requiredExtensions = deviceExtensions; // Copy your existing extensions
+    
+#ifdef __APPLE__
+    // On macOS with MoltenVK, check for portability subset
+    uint32_t extensionCount;
+    vkEnumerateDeviceExtensionProperties(_vcxMainDevice.physicalDevice, nullptr, &extensionCount, nullptr);
+    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(_vcxMainDevice.physicalDevice, nullptr, &extensionCount, availableExtensions.data());
 
-  VkPhysicalDeviceVulkan12Features vulkan12Features{};
-  vulkan12Features.sType =
-      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-  vulkan12Features.pNext = nullptr;
-
-#ifndef __APPLE__
-  vulkan12Features.shaderSharedInt64Atomics = VK_TRUE;
-  vulkan12Features.shaderBufferInt64Atomics = VK_TRUE;
-#else
-  vulkan12Features.shaderSharedInt64Atomics =
-      VK_FALSE; // Not supported on MoltenVK
-  vulkan12Features.shaderBufferInt64Atomics =
-      VK_FALSE; // Not supported on MoltenVK
+    for (const auto& extension : availableExtensions) {
+        if (strcmp(extension.extensionName, "VK_KHR_portability_subset") == 0) {
+            requiredExtensions.push_back("VK_KHR_portability_subset");
+            break;
+        }
+    }
 #endif
 
-  VkPhysicalDeviceFeatures2 features2{};
-  features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-  features2.pNext = &vulkan12Features;
-  features2.features.shaderInt64 = VK_TRUE;
-  features2.features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
-  VkDeviceCreateInfo deviceInfo = {};
-  deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-  deviceInfo.pNext = &features2; // Point to the features2
-  deviceInfo.queueCreateInfoCount =
-      static_cast<uint32_t>(deviceQueueInfos.size());
-  deviceInfo.pQueueCreateInfos = deviceQueueInfos.data();
-  deviceInfo.enabledExtensionCount =
-      static_cast<uint32_t>(deviceExtensions.size());
-  deviceInfo.ppEnabledExtensionNames = deviceExtensions.data();
-  deviceInfo.pEnabledFeatures = nullptr; // Must be nullptr when using pNext
+    VkPhysicalDeviceVulkan12Features vulkan12Features{};
+    vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    vulkan12Features.pNext = nullptr;
+#ifndef __APPLE__
+    vulkan12Features.shaderSharedInt64Atomics = VK_TRUE;
+    vulkan12Features.shaderBufferInt64Atomics = VK_TRUE;
+#else
+    vulkan12Features.shaderSharedInt64Atomics = VK_FALSE; // Not supported on MoltenVK
+    vulkan12Features.shaderBufferInt64Atomics = VK_FALSE; // Not supported on MoltenVK
+#endif
 
-  if (vkCreateDevice(_vcxMainDevice.physicalDevice, &deviceInfo, nullptr,
-                     &_vcxMainDevice.logicalDevice) != VK_SUCCESS)
-    throw std::runtime_error("failed to create Logical Device");
+    VkPhysicalDeviceFeatures2 features2{};
+    features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+    features2.pNext = &vulkan12Features;
+    features2.features.shaderInt64 = VK_TRUE;
+    features2.features.shaderStorageImageWriteWithoutFormat = VK_TRUE;
 
-  vkGetDeviceQueue(_vcxMainDevice.logicalDevice, ind.graphicsFamily, 0,
-                   &_vcxGraphicsQueue);
-  vkGetDeviceQueue(_vcxMainDevice.logicalDevice, ind.presentationFamily, 0,
-                   &_vcxPresentationQueue);
-  std::cout << "---VkLogicalDevice created Successfully---" << std::endl;
+    VkDeviceCreateInfo deviceInfo = {};
+    deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    deviceInfo.pNext = &features2; // Point to the features2
+    deviceInfo.queueCreateInfoCount = static_cast<uint32_t>(deviceQueueInfos.size());
+    deviceInfo.pQueueCreateInfos = deviceQueueInfos.data();
+    deviceInfo.enabledExtensionCount = static_cast<uint32_t>(requiredExtensions.size());
+    deviceInfo.ppEnabledExtensionNames = requiredExtensions.data();
+    deviceInfo.pEnabledFeatures = nullptr; // Must be nullptr when using pNext
+    
+    if (vkCreateDevice(_vcxMainDevice.physicalDevice, &deviceInfo, nullptr,
+                      &_vcxMainDevice.logicalDevice) != VK_SUCCESS)
+        throw std::runtime_error("failed to create Logical Device");
+        
+    vkGetDeviceQueue(_vcxMainDevice.logicalDevice, ind.graphicsFamily, 0,
+                     &_vcxGraphicsQueue);
+    vkGetDeviceQueue(_vcxMainDevice.logicalDevice, ind.presentationFamily, 0,
+                     &_vcxPresentationQueue);
+    std::cout << "---VkLogicalDevice created Successfully---" << std::endl;
 }
 
 void VulkanContext::CreateSwapChain() {

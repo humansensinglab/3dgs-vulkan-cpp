@@ -8,7 +8,11 @@
 
 #include "utils.h"
 #ifndef DEBUG
+#ifdef __APPLE__
 const bool enableValidationLayers = false;
+#else
+const bool enableValidationLayers = false;
+#endif
 #else
 const bool enableValidationLayers = true;
 #endif
