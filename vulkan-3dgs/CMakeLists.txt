@@ -80,6 +80,8 @@ if(WIN32)
     set(SHADER_COMPILE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/src/scripts/compile.bat")
 elseif(APPLE) 
     set(SHADER_COMPILE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/src/scripts/compile_shaders.sh")
+elseif(UNIX)  
+    set(SHADER_COMPILE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/src/scripts/compile_shaders_lx.sh")
 endif()
 
 # Create custom target to compile shaders
