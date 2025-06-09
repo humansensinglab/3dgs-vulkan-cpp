@@ -9,7 +9,7 @@ GraphicsPipeline::GraphicsPipeline(VulkanContext &vkContext)
 GraphicsPipeline::~GraphicsPipeline() { CleanUp(); }
 
 void GraphicsPipeline::Init() {
-
+  _axisVertices = createAxisCubeVertices();
   CreateRenderPass();
   CreateFrameBuffers();
   CreateDescriptorPool();
@@ -256,7 +256,7 @@ void GraphicsPipeline::CreateGraphicsPipeline() {
   VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
   inputAssembly.sType =
       VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-  inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+  inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
   inputAssembly.primitiveRestartEnable = VK_FALSE;
 
   // Viewport and scissor
@@ -280,13 +280,23 @@ void GraphicsPipeline::CreateGraphicsPipeline() {
   viewportState.pScissors = &scissor;
 
   // Rasterizer
+  // VkPipelineRasterizationStateCreateInfo rasterizer = {};
+  // rasterizer.sType =
+  // VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+  // rasterizer.depthClampEnable = VK_FALSE;
+  // rasterizer.rasterizerDiscardEnable = VK_FALSE;
+  // rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+  // rasterizer.lineWidth = 2.0f; // Thicker lines for better visibility
+  // rasterizer.cullMode = VK_CULL_MODE_NONE;
+  // rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+  // rasterizer.depthBiasEnable = VK_FALSE;
+
   VkPipelineRasterizationStateCreateInfo rasterizer = {};
   rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
   rasterizer.depthClampEnable = VK_FALSE;
   rasterizer.rasterizerDiscardEnable = VK_FALSE;
   rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-  rasterizer.lineWidth = 2.0f; // Thicker lines for better visibility
-  rasterizer.cullMode = VK_CULL_MODE_NONE;
+  rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
   rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
   rasterizer.depthBiasEnable = VK_FALSE;
 
@@ -456,4 +466,66 @@ void GraphicsPipeline::CleanUp() {
 
   // Clean up render pass
   vkDestroyRenderPass(device, _renderPass, nullptr);
+}
+
+std::vector<AxisVertex> GraphicsPipeline::createAxisCubeVertices() {
+  std::vector<AxisVertex> vertices;
+
+  const float axisLength = 1.0f;
+  const float thickness = 0.04f;
+
+  // Colors for each axis
+  const glm::vec3 xColor = {1.0f, 0.0f, 0.0f};
+  const glm::vec3 yColor = {0.0f, 1.0f, 0.0f};
+  const glm::vec3 zColor = {0.0f, 0.0f, 1.0f};
+
+  auto addCube = [&](glm::vec3 center, glm::vec3 size, glm::vec3 color) {
+    glm::vec3 halfSize = size * 0.5f;
+
+    std::array<glm::vec3, 8> cubeVertices = {
+        {center + glm::vec3(-halfSize.x, -halfSize.y, -halfSize.z),
+         center + glm::vec3(halfSize.x, -halfSize.y, -halfSize.z),
+         center + glm::vec3(halfSize.x, halfSize.y, -halfSize.z),
+         center + glm::vec3(-halfSize.x, halfSize.y, -halfSize.z),
+         center + glm::vec3(-halfSize.x, -halfSize.y, halfSize.z),
+         center + glm::vec3(halfSize.x, -halfSize.y, halfSize.z),
+         center + glm::vec3(halfSize.x, halfSize.y, halfSize.z),
+         center + glm::vec3(-halfSize.x, halfSize.y, halfSize.z)}};
+
+    std::array<std::array<int, 3>, 36> triangles = {{// Front face (-Z)
+                                                     {{0, 2, 1}},
+                                                     {{0, 3, 2}},
+                                                     // Back face (+Z)
+                                                     {{4, 5, 6}},
+                                                     {{4, 6, 7}},
+                                                     // Left face (-X)
+                                                     {{0, 7, 3}},
+                                                     {{0, 4, 7}},
+                                                     // Right face (+X)
+                                                     {{1, 2, 6}},
+                                                     {{1, 6, 5}},
+                                                     // Top face (+Y)
+                                                     {{3, 6, 2}},
+                                                     {{3, 7, 6}},
+                                                     // Bottom face (-Y)
+                                                     {{0, 1, 5}},
+                                                     {{0, 5, 4}}}};
+
+    for (const auto &tri : triangles) {
+      for (int i : tri) {
+        vertices.push_back({cubeVertices[i], color});
+      }
+    }
+  };
+
+  addCube(glm::vec3(axisLength * 0.5f, 0.0f, 0.0f),
+          glm::vec3(axisLength, thickness, thickness), xColor);
+
+  addCube(glm::vec3(0.0f, axisLength * 0.5f, 0.0f),
+          glm::vec3(thickness, axisLength, thickness), yColor);
+
+  addCube(glm::vec3(0.0f, 0.0f, axisLength * 0.5f),
+          glm::vec3(thickness, thickness, axisLength), zColor);
+
+  return vertices;
 }

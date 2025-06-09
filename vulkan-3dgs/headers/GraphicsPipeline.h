@@ -63,18 +63,18 @@ private:
 
   // Helper functions
   VkShaderModule CreateShaderModule(const std::vector<char> &code);
-
+  std::vector<AxisVertex> createAxisCubeVertices();
   // Axis geometry data
-  const std::array<AxisVertex, 6> _axisVertices = {
-      {// X axis (red)
-       {{0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-       {{1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+  std::vector<AxisVertex> _axisVertices;
+  //{// X axis (red)
+  // {{0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+  // {{1.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f}},
 
-       // Y axis (green)
-       {{0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-       {{0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+  // // Y axis (green)
+  // {{0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
+  // {{0.0f, 1.0f, 0.0f}, {0.0f, 1.0f, 0.0f}},
 
-       // Z axis (blue)
-       {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-       {{0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}}}};
+  // // Z axis (blue)
+  // {{0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},
+  // {{0.0f, 0.0f, 1.0f}, {0.0f, 0.0f, 1.0f}}}};
 };
