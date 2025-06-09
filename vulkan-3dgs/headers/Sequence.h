@@ -1,11 +1,12 @@
 #pragma once
 
+#include <chrono>
+#include <vector>
+
 #include "RenderSettings.h"
 #include "glm/glm.hpp"
-#include <chrono>
-
 class Sequence {
-public:
+ public:
   Sequence(){};
   void setSequence(std::vector<CameraKeyframe> *seq) {
     _sequence = seq;
@@ -13,7 +14,7 @@ public:
   }
   void Play(float deltaTime);
 
-private:
+ private:
   std::vector<CameraKeyframe> *_sequence;
   float _currTime = 0;
 

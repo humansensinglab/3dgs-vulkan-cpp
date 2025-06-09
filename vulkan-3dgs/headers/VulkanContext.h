@@ -3,17 +3,18 @@
 
 #pragma once
 
-#include "utils.h"
+#include <cstring>
 #include <iostream>
 
+#include "utils.h"
 #ifndef DEBUG
-const bool enableValidationLayers = true;
+const bool enableValidationLayers = false;
 #else
 const bool enableValidationLayers = true;
 #endif
 
 class VulkanContext {
-public:
+ public:
   VulkanContext(GLFWwindow *newWindow) : _vcxWindow(newWindow){};
 
   int InitContext();
@@ -44,7 +45,7 @@ public:
 
   GLFWwindow *getWindow() const { return _vcxWindow; }
 
-private:
+ private:
   GLFWwindow *_vcxWindow;
   VkInstance _vcxInstance;
 
@@ -79,19 +80,19 @@ private:
   void CreateCommandPool();
 
   // support
-  bool
-  CheckInstanceExtensionSupport(std::vector<const char *> *checkExtensions);
+  bool CheckInstanceExtensionSupport(
+      std::vector<const char *> *checkExtensions);
   bool CheckDeviceSuitable(VkPhysicalDevice device);
   bool CheckDeviceExtensionSupport(
-      VkPhysicalDevice device); // swapchain compatibility is checked on
-                                // physical device level
+      VkPhysicalDevice device);  // swapchain compatibility is checked on
+                                 // physical device level
   bool CheckValidationLayerSupport();
 
   // choose for Swapchain
-  VkSurfaceFormatKHR
-  ChooseBestFormatSurface(const std::vector<VkSurfaceFormatKHR> &formats);
-  VkPresentModeKHR
-  ChooseBestPresentMode(const std::vector<VkPresentModeKHR> &presentModes);
+  VkSurfaceFormatKHR ChooseBestFormatSurface(
+      const std::vector<VkSurfaceFormatKHR> &formats);
+  VkPresentModeKHR ChooseBestPresentMode(
+      const std::vector<VkPresentModeKHR> &presentModes);
   VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities);
 
   // helper cerate
@@ -111,10 +112,9 @@ private:
                 VkDebugUtilsMessageTypeFlagsEXT messageType,
                 const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
                 void *pUserData) {
-
     std::cerr << "Validation layer: " << pCallbackData->pMessage << std::endl;
 
-    return VK_FALSE; // Return false to let Vulkan continue
+    return VK_FALSE;  // Return false to let Vulkan continue
   }
 
   // Function to create the debug messenger

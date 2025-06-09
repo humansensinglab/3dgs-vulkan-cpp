@@ -10,6 +10,10 @@ elseif(APPLE)
     set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
     set(CMAKE_INSTALL_RPATH "@executable_path;/usr/local/lib")
 endif()
+if(UNIX AND NOT APPLE)  # Linux specifically
+    add_compile_options(-fPIC)
+endif()
+
 
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     add_compile_definitions(DEBUG)

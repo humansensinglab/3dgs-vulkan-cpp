@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "BufferManager.h"
 #include "Camera.h"
 #include "ComputePipeline.h"
@@ -13,16 +15,15 @@
 #include "Sequence.h"
 
 class GaussianRenderer {
-
-public:
+ public:
   GaussianRenderer(VulkanContext &vulkanContext, int shDegree,
                    Sequence &seqRecorder)
-      : _vulkanContext(vulkanContext), _bufferManager(),
+      : _vulkanContext(vulkanContext),
+        _bufferManager(),
         _imguiHandler(vulkanContext, seqRecorder),
         _graphcsPipeline(_vulkanContext),
         _computePipeline(vulkanContext, _imguiHandler, _graphcsPipeline),
         _shDegree(shDegree) {
-
     std::cout << "GaussianRenderer created" << std::endl;
   };
 
@@ -46,7 +47,7 @@ public:
   void processInput(float deltaTime);
   void UpdateCameraUniforms();
 
-private:
+ private:
   VulkanContext &_vulkanContext;
   BufferManager _bufferManager;
   std::unique_ptr<GaussianBase> _gaussianData;
@@ -74,10 +75,10 @@ private:
 };
 
 template <typename T>
-inline void
-GaussianRenderer::CreateAndUploadBuffer(VkBuffer &buffer, const void *data,
-                                        std::string type, int offset) {
-
+inline void GaussianRenderer::CreateAndUploadBuffer(VkBuffer &buffer,
+                                                    const void *data,
+                                                    std::string type,
+                                                    int offset) {
   VkDevice device = _vulkanContext.GetLogicalDevice();
   VkPhysicalDevice physicalDevice = _vulkanContext.GetPhysicalDevice();
 
