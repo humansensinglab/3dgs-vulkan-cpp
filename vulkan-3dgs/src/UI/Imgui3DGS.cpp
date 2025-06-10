@@ -337,7 +337,10 @@ void ImguiUI::CreateUI(Camera &cam) {
     ImGui::TextColored(ImVec4(1.0f, 1.0f, 0.0f, 1.0f), "Controls");
     ImGui::Separator();
     ImGui::Text("Use WASD to move camera");
-    ImGui::Text("Use mouse to look around (Hold Right)");
+    ImGui::Text("C/Space to move up/down");
+    ImGui::Text(
+        "Use mouse to look around (Hold Right / Two fingers in trackpad)");
+    ImGui::Text("Q/E to rotate(Roll)");
   }
 
   ImGui::End();
