@@ -124,7 +124,6 @@ cd vulkan-3dgs/Release
 #### macOS
 - **Metal Argument Buffers**: For some Vulkan/MoltenVK versions, set `MVK_CONFIG_USE_METAL_ARGUMENT_BUFFERS=0` before running
 - **Vulkan SDK 1.3.290** is tested and does not require this workaround
-- **M3/M4 Color Format Issue**: Some M3/M4 Macs experience flickering and black screens due to color format compatibility issues. This is currently being addressed - if encountered, please provide your model information
 
 ### Directory Structure After Build (Windows: For Linux/MacOS, no Release/Debug folder)
 ```
