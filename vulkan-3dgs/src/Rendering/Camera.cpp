@@ -16,13 +16,15 @@ Camera::Camera(int w, int h, float fov, float aspectRatio, float nearPlane,
   g_renderSettings.pos = _pos;
   g_renderSettings.nearPlane = nearPlane;
   g_renderSettings.farPlane = farPlane;
-  g_renderSettings.globalRotation = glm::mat4(1.0f);
+  g_renderSettings.baseReference = _baseReference;
+  g_renderSettings.currentReference = _currentReference;
+
+  g_renderSettings.worldUp = _worldUp;
   UpdateCameraVectors();
 }
 
 glm::mat4 Camera::GetViewMatrix() const {
   glm::mat4 view = glm::lookAtLH(_pos, _pos - _front, _worldUp);
-  g_renderSettings.global_rotation = view;
   return view;
 }
 
@@ -55,6 +57,7 @@ void Camera::ProcessMouseMovement(float deltaX, float deltaY,
 
     _front = glm::vec3(yawRot * pitchRot * glm::vec4(_front, 0.0f));
     _front = glm::normalize(_front);
+    g_renderSettings.front = _front;
 
     _right = glm::normalize(glm::cross(_front, _worldUp));
     _up = glm::normalize(glm::cross(_right, _front));
@@ -62,7 +65,7 @@ void Camera::ProcessMouseMovement(float deltaX, float deltaY,
     UpdateAnglesFromVectors();
   } else {
 
-    _yaw -= deltaX;
+    _yaw += deltaX;
     _pitch -= deltaY;
 
     if (_yaw >= 360.0f)
@@ -115,6 +118,7 @@ void Camera::ProcessKeyboard(CameraMovement direction, float deltaTime) {
     _up = glm::vec3(rollRot * glm::vec4(_up, 0.0f));
     _right = glm::vec3(rollRot * glm::vec4(_right, 0.0f));
     _worldUp = _up;
+    g_renderSettings.worldUp = _up;
     UpdateAnglesFromVectors();
   } break;
   case CameraMovement::ROLL_RIGHT: {
@@ -123,9 +127,11 @@ void Camera::ProcessKeyboard(CameraMovement direction, float deltaTime) {
     _up = glm::vec3(rollRot * glm::vec4(_up, 0.0f));
     _right = glm::vec3(rollRot * glm::vec4(_right, 0.0f));
     _worldUp = _up;
+    g_renderSettings.worldUp = _up;
     UpdateAnglesFromVectors();
   } break;
   }
+
   g_renderSettings.pos = _pos;
 }
 
@@ -152,27 +158,14 @@ CameraUniforms Camera::getUniforms() {
   _uniforms.camPos = glm::vec4(g_renderSettings.pos, 0.0f);
   if (g_renderSettings.playing) {
     _pos = g_renderSettings.pos;
-    _yaw = g_renderSettings.yaw;
-    _pitch = g_renderSettings.pitch;
+    _baseReference = g_renderSettings.baseReference;
 
-    if (_baseReference != glm::mat4(1.0f)) {
+    _front = g_renderSettings.front;
+    _worldUp = g_renderSettings.worldUp;
+    _right = glm::normalize(glm::cross(_front, _worldUp));
+    _up = glm::normalize(glm::cross(_right, _front));
 
-      glm::vec3 localFront;
-      localFront.x = cos(glm::radians(_yaw)) * cos(glm::radians(_pitch));
-      localFront.y = sin(glm::radians(_pitch));
-      localFront.z = sin(glm::radians(_yaw)) * cos(glm::radians(_pitch));
-      localFront = glm::normalize(localFront);
-
-      glm::mat3 referenceRotation = glm::mat3(_baseReference);
-      _front = glm::normalize(referenceRotation * localFront);
-
-      glm::vec3 referenceUp = referenceRotation * glm::vec3(0.0f, 1.0f, 0.0f);
-      _right = glm::normalize(glm::cross(_front, referenceUp));
-      _up = glm::normalize(glm::cross(_right, _front));
-      _worldUp = referenceUp;
-    } else {
-      UpdateCameraVectors();
-    }
+    UpdateAnglesFromVectors();
   }
   _uniforms.viewMatrix = GetViewMatrix();
   _uniforms.projMatrix = GetProjectionMatrix();
@@ -187,7 +180,7 @@ void Camera::UpdateCameraVectors() {
   front.y = sin(glm::radians(_pitch));
   front.z = sin(glm::radians(_yaw)) * cos(glm::radians(_pitch));
   _front = glm::normalize(front);
-
+  g_renderSettings.front = _front;
   _right = glm::normalize(glm::cross(_front, _worldUp));
   _up = glm::normalize(glm::cross(_right, _front));
 }
@@ -198,16 +191,17 @@ void Camera::SetNewReference() {
 
   _worldUp = _up;
 
-  g_renderSettings.globalRotation = _baseReference;
-
   _yaw = 0.0f;
   _pitch = 0.0f;
   g_renderSettings.yaw = _yaw;
   g_renderSettings.pitch = _pitch;
 
   _currentReference = _baseReference;
-
+  g_renderSettings.baseReference = _baseReference;
+  g_renderSettings.currentReference = _currentReference;
   UpdateAnglesFromVectors();
+  g_renderSettings.front = _front;
+  g_renderSettings.worldUp = _worldUp;
 }
 
 glm::mat4 Camera::GetCurrentRotationForGizmo() const {

@@ -32,12 +32,14 @@ struct RenderSettings {
 
   float yaw = 0;
   float pitch = 0;
+  glm::vec3 worldUp;
+  glm::vec3 front;
 
   bool sequenceMode = false;
   bool playing = false;
 
-  glm::mat4 global_rotation = glm::mat4(1.0f);
-  glm::mat4 globalRotation = glm::mat4(1.0f);
+  glm::mat4 baseReference = glm::mat4(1.0f);
+  glm::mat4 currentReference = glm::mat4(1.0f);
   bool showAxis = false;
   std::string shaderPath = "";
 };
@@ -51,6 +53,10 @@ struct CameraKeyframe {
   float farPlane;
   float yaw;
   float pitch;
+  glm::vec3 worldUp;
+  glm::vec3 front;
+  glm::mat4 baseReference;
+  glm::mat4 currentReference;
 };
 // Global instance
 extern RenderSettings g_renderSettings;

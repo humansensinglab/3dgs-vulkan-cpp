@@ -35,6 +35,16 @@ void Sequence::Play(float deltaTime) {
           LerpAngle(_sequence->at(keyA).yaw, _sequence->at(keyB).yaw, alpha);
       g_renderSettings.pitch = LerpAngle(_sequence->at(keyA).pitch,
                                          _sequence->at(keyB).pitch, alpha);
+      glm::vec3 worldUpInterp = glm::mix(_sequence->at(keyA).worldUp,
+                                         _sequence->at(keyB).worldUp, alpha);
+      g_renderSettings.worldUp = glm::normalize(worldUpInterp);
+      glm::vec3 interpFront =
+          glm::mix(_sequence->at(keyA).front, _sequence->at(keyB).front, alpha);
+      g_renderSettings.front = glm::normalize(interpFront);
+
+      g_renderSettings.baseReference = _sequence->at(keyB).baseReference;
+      g_renderSettings.currentReference = _sequence->at(keyB).currentReference;
+
     } else {
       g_renderSettings.playing = false;
     }

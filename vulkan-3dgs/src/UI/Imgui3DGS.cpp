@@ -362,6 +362,11 @@ void ImguiUI::CreateUI(Camera &cam) {
       kf.farPlane = g_renderSettings.farPlane;
       kf.pitch = g_renderSettings.pitch;
       kf.yaw = g_renderSettings.yaw;
+      kf.worldUp = g_renderSettings.worldUp;
+      kf.baseReference = g_renderSettings.baseReference;
+      kf.currentReference = g_renderSettings.currentReference;
+      kf.front = g_renderSettings.front;
+
       sequence.push_back(kf);
     }
 
@@ -393,6 +398,8 @@ void ImguiUI::CreateUI(Camera &cam) {
         ImGui::SameLine();
         ImGui::Text("Pitch: %.2f, Yaw: %2f", sequence[i].pitch,
                     sequence[i].yaw);
+        ImGui::Text("WorldUp: (%.1f, %.1f, %.1f)", sequence[i].worldUp.x,
+                    sequence[i].worldUp.y, sequence[i].worldUp.z);
         ImGui::Text("FOV: %.1f", sequence[i].fov);
         ImGui::SameLine();
         ImGui::Text("Wireframe: %s", sequence[i].wireframe ? "Yes" : "No");
