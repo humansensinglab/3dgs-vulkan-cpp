@@ -1,4 +1,4 @@
-# Vulkan 3D Gaussian Splatting
+# Vulkan 3D Gaussian Splatting - HUMAN SENSING LAB
 
 Cross-platform 3D Gaussian Splatting implementation with KeyFrame Animation system using **pure Vulkan compute shaders** — no CUDA dependencies. Python support.
 
@@ -163,21 +163,6 @@ build/
 - **Camera Panel** - Position, rotation, FOV, speed controls
 - **Rendering Panel** - Culling, wireframe, tile size options
 - **Sequence Panel** - Keyframe management and playback
-
----
-
-## ⏳ Roadmap
-
-### Platform Expansion  
-- **Resizable Windows** — Dynamic window resizing support (coming soon)
-- **Image Snapshot** — Direct jpeg export from image snaphot
-- **Video Export** — Direct MP4/AVI export from animation sequences
-- **Mobile Support** — Native Android app + iOS via MoltenVK
-
-### User Experience
-- **Advanced Animation** — Bézier curves, easing functions, path preview
-- **Drag & Drop** — Direct PLY file loading from desktop
-- **Multi-PLY Support** — Load and switch between multiple models
 
 ---
 
