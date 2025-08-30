@@ -15,7 +15,7 @@ Most 3DGS implementations rely on CUDA, locking them to NVIDIA GPUs. This projec
 - ✅ **Cross-platform**: Runs on Windows, macOS, and Linux
 - ✅ **Any GPU vendor**: NVIDIA, AMD, Intel, Apple Silicon
 - ✅ **HPC render**: 30-90fps real-time gaussian rendering.
-- ✅ **Python Integration**: Bindings to run the renderer from python. For this, check [Vulkan 3dgs Python](https://github.com/AlejandroAmat/vulkan-3dgs-python)
+- ✅ **Python Integration**: Bindings to run the renderer from python. For this, check [Vulkan 3dgs Python](https://github.com/humansensinglab/vulkan-3dgs-python)
 - ✅ **ImGui control System**: Features a Keyframe Animation system for real-time rendering, adjustable FOV, wireframe mode, position, rotation, performance metrics, and more.
 - ✅ **World Axis Reference**:  Easily modify the coordinate system to match your target PLY file, useful for tilted point clouds or specific viewing rotations.
   
